@@ -1,0 +1,10 @@
+﻿amt_admin_users: VERIFIED - 0 records
+amt_audit_logs: VERIFIED - 0 records
+amt_discount_codes: VERIFIED - 0 records
+amt_discount_redemptions: VERIFIED - 0 records
+amt_licenses: VERIFIED - 0 records
+amt_members: VERIFIED - 0 records
+amt_orders: VERIFIED - 0 records
+amt_server_state: VERIFIED - 0 records
+amt_user_api_keys: VERIFIED - 0 records
+ALL 9 SUPABASE TABLES VERIFIED

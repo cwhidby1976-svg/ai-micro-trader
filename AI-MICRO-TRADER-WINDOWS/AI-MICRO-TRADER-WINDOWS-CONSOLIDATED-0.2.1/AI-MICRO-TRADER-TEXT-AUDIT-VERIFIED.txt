@@ -1,0 +1,70 @@
+﻿
+
+File    : src\components\LandingPage.tsx
+Line    : 315
+Pattern : Ã¢
+Text    : <span className="text-emerald-400">Operational Ã¢â‚¬Â¢ ~2,420 TPS</span>
+
+File    : src\components\LandingPage.tsx
+Line    : 321
+Pattern : Ã¢
+Text    : <span className="text-cyan-400">Connected Ã¢â‚¬Â¢ 11ms Avg Route</span>
+
+File    : src\components\LandingPage.tsx
+Line    : 429
+Pattern : â€
+Text    : AI Micro Trader brings Solana market monitoring, eight-point ICC analysis, and automated trading technology together in one powerful platformâ€”designed to help you evaluate opportunities and manage trades around the clock.
+
+File    : src\components\LandingPage.tsx
+Line    : 551
+Pattern : Ã¢
+Text    : v2.6 Stable Ã¢â‚¬Â¢ 64-bit
+
+File    : src\components\LandingPage.tsx
+Line    : 798
+Pattern : â€
+Text    : Automated 15-minute impulse cycles execute 3Ã¢â‚¬â€œ5 high-conviction trades every cycle with trailing stop-loss.
+
+File    : src\components\LandingPage.tsx
+Line    : 840
+Pattern : Ã¢
+Text    : Founder VIP Ã¢â‚¬Â¢ 2 Keys
+
+File    : src\components\LandingPage.tsx
+Line    : 861
+Pattern : Ã¢
+Text    : <span>2 Keys Included Ã¢â‚¬Â¢ Full Autopilot Unlocked</span>
+
+File    : src\components\LandingPage.tsx
+Line    : 1000
+Pattern : Ã¢
+Text    : <span>Ã¢â‚¬Â¢ Powered by NextGen Traders Hub</span>
+
+File    : src\components\LandingPage.tsx
+Line    : 1210
+Pattern : â€
+Text    : <option value="Trial">1-Day Free Trial (24h) Ã¢â‚¬â€ Manual Trading Only (Autopilot Locked) Ã¢â‚¬Â¢ 1 Key</option>
+
+File    : src\components\LandingPage.tsx
+Line    : 1211
+Pattern : â€
+Text    : <option value="Annual">Annual Subscription (365d) Ã¢â‚¬â€ Full Autopilot Ã¢â‚¬Â¢ 1 Key Only</option>
+
+File    : src\components\LandingPage.tsx
+Line    : 1212
+Pattern : â€
+Text    : <option value="Lifetime">Lifetime Subscription (Permanent) Ã¢â‚¬â€ Full Autopilot Ã¢â‚¬Â¢ 2 Keys Included</option>
+
+File    : src\components\LandingPage.tsx
+Line    : 1233
+Pattern : Ã¢
+Text    : <span>Offers 1 Key Only Ã¢â‚¬Â¢ Full Autopilot Unlocked</span>
+
+File    : src\components\LandingPage.tsx
+Line    : 1245
+Pattern : Ã¢
+Text    : <span>Gets 2 Keys Included Ã¢â‚¬Â¢ Full Autopilot Unlocked</span>
+
+
+
+

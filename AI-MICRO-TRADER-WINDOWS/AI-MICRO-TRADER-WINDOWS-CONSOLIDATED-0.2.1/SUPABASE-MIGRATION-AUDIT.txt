@@ -1,0 +1,165 @@
+﻿AI MICRO TRADER - SUPABASE MIGRATION AUDIT
+Generated: 10/13/2026 20:49:48
+
+===== DATABASE SAVE OPERATIONS =====
+Line 142: this.saveData(initial);
+Line 247: this.saveData();
+Line 281: this.saveData();
+Line 319: this.saveData();
+Line 445: this.saveData();
+Line 471: this.saveData();
+Line 516: this.saveData();
+Line 566: this.saveData();
+Line 598: this.saveData();
+Line 671: this.saveData();
+Line 748: this.saveData();
+Line 763: this.saveData();
+Line 775: this.saveData();
+Line 822: this.saveData();
+Line 843: this.saveData();
+Line 910: this.saveData();
+Line 965: this.saveData();
+Line 987: this.saveData();
+Line 1003: this.saveData();
+Line 1020: this.saveData();
+Line 1076: this.saveData();
+Line 1140: this.saveData();
+Line 1178: this.saveData();
+Line 1192: this.saveData();
+Line 1214: this.saveData();
+Line 1239: this.saveData();
+Line 1300: this.saveData();
+Line 1316: this.saveData();
+Line 1347: this.saveData();
+Line 1370: this.saveData();
+Line 1403: this.saveData();
+Line 1426: this.saveData();
+Line 1602: this.saveData();
+Line 1641: this.saveData();
+Line 1684: this.saveData();
+Line 1709: this.saveData();
+
+===== DATABASE METHODS =====
+Line 71: private ensureDataDir() {
+Line 77: private loadData(): DatabaseSchema {
+Line 146: private saveData(dataToSave = this.data) {
+Line 153: public getServerSecret(): string {
+Line 159: public hashAccessCode(code: string): string {
+Line 164: public generateSecureAccessCode(): string {
+Line 179: public hashPassword(password: string, salt?: string): { hash: string; salt: string } {
+Line 185: public verifyPassword(password: string, hash: string, salt: string): boolean {
+Line 190: public signLicenseToken(payload: ValidationTokenPayload): string {
+Line 200: public verifyLicenseToken(token: string): ValidationTokenPayload | null {
+Line 222: public getConfig(): SystemConfig {
+Line 226: public setAnnualPrice(
+Line 259: public setLifetimePrice(
+Line 293: public updateSystemConfig(
+Line 331: public async getLiveSolPriceUsd(): Promise<{ rate: number; source: string; timestamp: string }> {
+Line 408: public registerMember(params: {
+Line 457: public getMemberByEmail(email: string): MemberUser | undefined {
+Line 461: public getMemberById(id: string): MemberUser | undefined {
+Line 465: public verifyMemberPassword(email: string, password: string): MemberUser | null {
+Line 475: public getAllMembers(): MemberUser[] {
+Line 481: public startFreeTrial(memberId: string, ip: string): { success: boolean; member: MemberUser; rawCode: string } {
+Line 530: public createDiscountCode(
+Line 571: public getAllDiscountCodes() {
+Line 578: public getDiscountRedemptions() {
+Line 586: public setDiscountCodeActive(id: string, active: boolean): DiscountCode {
+Line 604: public async createCheckoutQuote(
+Line 683: public getOrderById(orderId: string): CheckoutOrder | undefined {
+Line 687: public getAllOrders(): CheckoutOrder[] {
+Line 691: public async verifyAndCreditPayment(params: {
+Line 934: public hasAdminUser(): boolean {
+Line 938: public getAdminByUsername(username: string): AdminUser | undefined {
+Line 944: public getAdminById(id: string): AdminUser | undefined {
+Line 948: public createFirstAdmin(username: string, password: string): AdminUser {
+Line 975: public createOrUpdateAdmin(
+Line 1007: public recordAdminLogin(id: string, success: boolean): void {
+Line 1025: public createLicense(params: {
+Line 1088: public findLicenseByCode(rawCode: string): LicenseRecord | undefined {
+Line 1093: public getLicenseById(id: string): LicenseRecord | undefined {
+Line 1097: public getAllLicenses(): LicenseRecord[] {
+Line 1102: public refreshLicenseStatus(license: LicenseRecord): LicenseStatus {
+Line 1130: private refreshAllLicenseStatuses(): void {
+Line 1144: public activateLicense(params: {
+Line 1265: public verifyDeviceStatus(
+Line 1335: public resetAllDevices(licenseId: string, actor: string, ip: string): boolean {
+Line 1358: public revokeLicense(licenseId: string, reason: string, actor: string, ip: string): boolean {
+Line 1381: public renewLicense(
+Line 1416: public logAudit(entry: Omit<AuditLog, 'id' | 'timestamp'>): void {
+Line 1429: public getAuditLogs(limit = 200): AuditLog[] {
+Line 1433: public getStats() {
+Line 1457: private encryptString(plainText: string): string {
+Line 1466: private decryptString(cipherText: string): string {
+Line 1482: public maskApiKey(key: string): string {
+Line 1489: public getUserApiCredentials(ownerId: string): UserApiCredentials | null {
+Line 1494: public getPublicUserApiKeys(ownerId: string): ClientApiKeysPublic {
+Line 1520: public async saveUserApiKeys(
+Line 1614: public removeUserApiKey(
+Line 1653: public async testUserApiKey(
+Line 1718: public async testJupiterApi(key?: string): Promise<{ success: boolean; error?: string }> {
+Line 1791: public async testGoPlusApi(appKey: string, appSecret?: string): Promise<{ success: boolean; error?: string }> {
+Line 1883: public checkEntitlements(identifier: {
+
+===== DATABASE CALLS FROM API ROUTES =====
+Line 43: db.logAudit({
+Line 117: const member = db.getMemberById(session.memberId);
+Line 136: const status = db.verifyDeviceStatus(licenseToken, deviceId, getClientIp(req));
+Line 207: const config = db.getConfig();
+Line 208: const { rate, source, timestamp } = await db.getLiveSolPriceUsd();
+Line 242: const member = db.registerMember({ name, email, password, ip });
+Line 280: const member = db.verifyMemberPassword(email, password);
+Line 282: db.logAudit({
+Line 300: db.logAudit({
+Line 327: const member = db.getMemberById(session.memberId);
+Line 333: license = db.getLicenseById(member.licenseId);
+Line 337: const orders = db.getAllOrders().filter((o) => o.memberId === member.id);
+Line 382: const result = db.startFreeTrial(session.memberId, ip);
+Line 414: const order = await db.createCheckoutQuote(session.memberId, ip, selectedPlan, couponCode);
+Line 435: const result = await db.verifyAndCreditPayment({ orderId, txSignature, ip, memberId: session.memberId });
+Line 453: const order = db.getOrderById(orderId);
+Line 473: annualHistory = db.setAnnualPrice(Number(priceUsd), session.username, reason);
+Line 477: lifetimeHistory = db.setLifetimePrice(Number(lifetimePriceUsd), session.username, reason);
+Line 480: const config = db.getConfig();
+Line 494: const config = db.getConfig();
+Line 505: const updated = db.updateSystemConfig(updates, session.username);
+Line 515: res.json({ discountCodes: db.getAllDiscountCodes(), redemptions: db.getDiscountRedemptions() });
+Line 523: const discount = db.createDiscountCode(
+Line 547: const discount = db.setDiscountCodeActive(
+Line 558: const members = db.getAllMembers().map((m) => ({
+Line 576: const orders = db.getAllOrders();
+Line 586: needsSetup: !db.hasAdminUser(),
+Line 600: const admin = db.createFirstAdmin(username, password);
+Line 633: const admin = db.getAdminByUsername(username);
+Line 635: db.logAudit({
+Line 644: const valid = db.verifyPassword(password, admin.passwordHash, admin.salt);
+Line 645: db.recordAdminLogin(admin.id, valid);
+Line 648: db.logAudit({
+Line 666: db.logAudit({
+Line 696: const admin = db.getAdminById(session.adminId);
+Line 724: const { record, rawCode } = db.createLicense({
+Line 743: const licenses = db.getAllLicenses();
+Line 753: const success = db.revokeLicense(id, reason || 'Administrative action', session.username, ip);
+Line 765: const result = db.renewLicense(id, days, session.username, ip);
+Line 776: const success = db.resetAllDevices(id, session.username, ip);
+Line 786: const license = db.getLicenseById(id);
+Line 793: db.logAudit({
+Line 808: let logs = db.getAuditLogs(limit);
+Line 822: const stats = db.getStats();
+Line 845: primaryKeyResult = db.createLicense({
+Line 853: secondaryKeyResult = db.createLicense({
+Line 863: primaryKeyResult = db.createLicense({
+Line 873: primaryKeyResult = db.createLicense({
+Line 920: const result = db.activateLicense({
+Line 963: const result = db.verifyDeviceStatus(token, deviceId, ip);
+Line 997: const keys = db.getPublicUserApiKeys(caller.ownerId);
+Line 1008: const updated = await db.saveUserApiKeys(
+Line 1028: const updated = db.removeUserApiKey(caller.ownerId, provider, caller.actor);
+Line 1041: const result = await db.testUserApiKey(caller.ownerId, provider);
+Line 1051: const entitlements = db.checkEntitlements({
+Line 1061: const entitlements = db.checkEntitlements({
+Line 1098: const entitlements = db.checkEntitlements({
+Line 1128: const entitlements = db.checkEntitlements({
+
+===== SUPABASE TABLE CHECK =====
+C:\Users\Chris\Desktop\NextGenTradersHub--Ai-MicroTrader-main\NextGenTradersHub--Ai-MicroTrader-main\.amt-supabase-audit-2016.mts: ACCESSIBLE - null records

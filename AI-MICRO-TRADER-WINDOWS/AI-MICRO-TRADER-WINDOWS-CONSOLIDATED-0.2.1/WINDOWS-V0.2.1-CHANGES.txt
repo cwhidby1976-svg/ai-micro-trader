@@ -1,0 +1,11 @@
+AI Micro Trader Windows v0.2.1 TEST
+- Exact uploaded bull/bear logo replaces blue shield on activation screen.
+- Windows-only platform badge; Android selection removed.
+- Previously saved Android platform override corrected in desktop build.
+- User Login retained.
+- Admin portal removed from customer app routing; no admin keyboard or URL shortcuts.
+- Demo Paper Mode entry removed from activation UI.
+- No live wallet signing, unattended authorization or real trade execution is enabled.
+- This is a BUILD KIT, not an .exe. Build on Windows using BUILD-WINDOWS-TEST.ps1.
+- Existing website source/deployment is not changed.
+- Existing desktop appId is unchanged; uninstall prior test before installation.

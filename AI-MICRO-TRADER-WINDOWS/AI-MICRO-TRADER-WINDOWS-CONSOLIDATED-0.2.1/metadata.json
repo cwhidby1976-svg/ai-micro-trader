@@ -1,0 +1,6 @@
+{
+  "name": "AI – Micro Trader & Licensing Engine",
+  "description": "High-frequency Solana micro-cap & meme coin scanner with ICC strategy engine, Jupiter swap integration, and enterprise device-bound access code licensing system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

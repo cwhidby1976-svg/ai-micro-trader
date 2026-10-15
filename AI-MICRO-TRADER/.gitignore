@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Private licensing database and backups
+data/
+database-backups/
+DISCOUNT-SYSTEM-BACKUP/
+WALLET-BACKUP-BEFORE-REAL-CONNECTION/
+tsconfig.before-discount-fix.json.bak

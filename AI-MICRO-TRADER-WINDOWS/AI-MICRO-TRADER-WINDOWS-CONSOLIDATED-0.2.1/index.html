@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI – Micro Trader & Licensing Engine</title>
+    <meta name="description" content="High-frequency Solana micro-cap & meme coin scanner with ICC strategy engine, Jupiter swap integration, and enterprise device-bound access code licensing system." />
+    <meta property="og:title" content="AI – Micro Trader & Licensing Engine" />
+    <meta property="og:description" content="High-frequency Solana micro-cap & meme coin scanner with ICC strategy engine, Jupiter swap integration, and enterprise device-bound access code licensing system." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Gracefully prevent benign Vite HMR WebSocket errors from triggering unhandled rejection overlays in preview
+      window.addEventListener('unhandledrejection', function (event) {
+        if (
+          event &&
+          event.reason &&
+          (String(event.reason.message || event.reason).includes('WebSocket') ||
+           String(event.reason.message || event.reason).includes('closed without opened'))
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation?.();
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
