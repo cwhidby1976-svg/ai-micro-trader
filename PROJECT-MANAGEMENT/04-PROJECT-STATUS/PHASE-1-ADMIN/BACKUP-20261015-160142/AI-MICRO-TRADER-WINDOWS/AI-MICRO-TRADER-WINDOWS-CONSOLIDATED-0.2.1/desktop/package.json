@@ -1,0 +1,40 @@
+{
+    "name":  "ai-micro-trader-windows-consolidated-test",
+    "version":  "0.2.1",
+    "private":  true,
+    "author":  "NextGen Traders Hub",
+    "description":  "Windows test v0.2.1: customer-only activation and exact logo; live execution disabled",
+    "main":  "main.cjs",
+    "scripts":  {
+                    "pack:win":  "electron-builder --win nsis --x64"
+                },
+    "devDependencies":  {
+                            "electron":  "38.8.6",
+                            "electron-builder":  "26.15.3"
+                        },
+    "build":  {
+                  "appId":  "com.nextgentradershub.aimicrotrader.test",
+                  "productName":  "AI Micro Trader TEST",
+                  "directories":  {
+                                      "output":  "../WINDOWS-LICENSING-TEST-OUTPUT"
+                                  },
+                  "files":  [
+                                "main.cjs",
+                                "preload.cjs",
+                                "licensing-bridge.cjs",
+                                "assets/**/*",
+                                "dist/**/*"
+                            ],
+                  "extraMetadata":  {
+                                        "main":  "main.cjs"
+                                    },
+                  "win":  {
+                              "icon":  "assets/windows-icon.ico"
+                          },
+                  "nsis":  {
+                               "oneClick":  false,
+                               "allowToChangeInstallationDirectory":  true,
+                               "artifactName":  "AI-Micro-Trader-LICENSING-TEST-Setup-${version}.exe"
+                           }
+              }
+}

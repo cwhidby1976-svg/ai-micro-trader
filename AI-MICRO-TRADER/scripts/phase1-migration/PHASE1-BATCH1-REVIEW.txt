@@ -1,0 +1,580 @@
+﻿===== FILE: .\src\server\supabaseAuth.ts =====
+
+  src\server\supabaseAuth.ts:45:    .update({ data: updated }).eq('id', member.id).select('id');
+  src\server\supabaseAuth.ts:46:  if (saveError) throwDbError('Member login update', saveError);
+  src\server\supabaseAuth.ts:47:  if (saved?.length !== 1) throw new Error('Member login update did not persist');
+  src\server\supabaseAuth.ts:48:  return updated;
+  src\server\supabaseAuth.ts:49:}
+  src\server\supabaseAuth.ts:50:
+  src\server\supabaseAuth.ts:51:// First-admin creation intentionally excluded until atomic single-admin provisioning is implemented.
+  src\server\supabaseAuth.ts:52:// Never use count-then-insert for first-admin creation: concurrent requests can both succeed.
+> src\server\supabaseAuth.ts:53:export async function loginSupabaseAdmin(username: string, password: string): Promise<AdminUser | null> {
+  src\server\supabaseAuth.ts:54:  const { data, error } = await supabase.from('amt_admin_users')
+  src\server\supabaseAuth.ts:55:    .select('id,data').ilike('username', username.trim()).maybeSingle();
+  src\server\supabaseAuth.ts:56:  if (error) throwDbError('Administrator lookup', error);
+  src\server\supabaseAuth.ts:57:  if (!data) return null;
+  src\server\supabaseAuth.ts:58:  const admin = data.data as AdminUser;
+  src\server\supabaseAuth.ts:59:  if (admin.lockedUntil && Date.parse(admin.lockedUntil) > Date.now()) return null;
+  src\server\supabaseAuth.ts:60:  const valid = db.verifyPassword(password, admin.passwordHash, admin.salt);
+  src\server\supabaseAuth.ts:61:  const failures = valid ? 0 : (admin.failedLoginAttempts ?? 0) + 1;
+  src\server\supabaseAuth.ts:62:  const updated: AdminUser = {
+  src\server\supabaseAuth.ts:63:    ...admin,
+  src\server\supabaseAuth.ts:64:    lastLoginAt: valid ? new Date().toISOString() : admin.lastLoginAt,
+  src\server\supabaseAuth.ts:65:    failedLoginAttempts: failures,
+  src\server\supabaseAuth.ts:66:    lockedUntil: valid ? null : failures >= 5
+  src\server\supabaseAuth.ts:67:      ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : admin.lockedUntil,
+  src\server\supabaseAuth.ts:68:  };
+  src\server\supabaseAuth.ts:69:  const { data: saved, error: saveError } = await supabase.from('amt_admin_users')
+  src\server\supabaseAuth.ts:70:    .update({ data: updated }).eq('id', admin.id).select('id');
+  src\server\supabaseAuth.ts:71:  if (saveError) throwDbError('Administrator login update', saveError);
+
+
+
+===== FILE: .\src\server\routes.ts =====
+
+  src\server\routes.ts:9:// In-memory sessions stores
+  src\server\routes.ts:10:interface AdminSession {
+  src\server\routes.ts:11:  token: string;
+  src\server\routes.ts:12:  adminId: string;
+  src\server\routes.ts:13:  username: string;
+  src\server\routes.ts:14:  createdAt: number;
+  src\server\routes.ts:15:  expiresAt: number;
+  src\server\routes.ts:16:}
+> src\server\routes.ts:17:const adminSessions = new Map<string, AdminSession>();
+  src\server\routes.ts:18:
+  src\server\routes.ts:19:interface MemberSession {
+  src\server\routes.ts:20:  token: string;
+  src\server\routes.ts:21:  memberId: string;
+  src\server\routes.ts:22:  email: string;
+  src\server\routes.ts:23:  createdAt: number;
+  src\server\routes.ts:24:  expiresAt: number;
+  src\server\routes.ts:25:}
+  src\server\routes.ts:26:const memberSessions = new Map<string, MemberSession>();
+  src\server\routes.ts:27:
+  src\server\routes.ts:28:// In-memory rate limiting map: ip -> { count, resetAt }
+  src\server\routes.ts:29:const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  src\server\routes.ts:30:
+  src\server\routes.ts:31:function rateLimiter(limit: number, windowMs: number) {
+  src\server\routes.ts:32:  return (req: Request, res: Response, next: NextFunction) => {
+  src\server\routes.ts:33:    const ip = getClientIp(req);
+  src\server\routes.ts:34:    const now = Date.now();
+  src\server\routes.ts:35:    const entry = rateLimitMap.get(ip);
+  src\server\routes.ts:53:    }
+  src\server\routes.ts:54:
+  src\server\routes.ts:55:    entry.count += 1;
+  src\server\routes.ts:56:    next();
+  src\server\routes.ts:57:  };
+  src\server\routes.ts:58:}
+  src\server\routes.ts:59:
+  src\server\routes.ts:60:// Authentication middlewares
+> src\server\routes.ts:61:function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  src\server\routes.ts:62:  const authHeader = req.headers.authorization;
+  src\server\routes.ts:63:  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  src\server\routes.ts:64:    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+  src\server\routes.ts:65:  }
+  src\server\routes.ts:66:
+  src\server\routes.ts:67:  const token = authHeader.split(' ')[1];
+> src\server\routes.ts:68:  const session = adminSessions.get(token);
+  src\server\routes.ts:69:  if (!session || Date.now() > session.expiresAt) {
+> src\server\routes.ts:70:    if (session) adminSessions.delete(token);
+  src\server\routes.ts:71:    return res.status(401).json({ error: 'Admin session expired or invalid. Please log in again.' });
+  src\server\routes.ts:72:  }
+  src\server\routes.ts:73:
+  src\server\routes.ts:74:  (req as any).admin = session;
+  src\server\routes.ts:75:  next();
+  src\server\routes.ts:76:}
+  src\server\routes.ts:77:
+  src\server\routes.ts:78:function requireMember(req: Request, res: Response, next: NextFunction) {
+  src\server\routes.ts:79:  const authHeader = req.headers.authorization;
+  src\server\routes.ts:80:  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  src\server\routes.ts:81:    return res.status(401).json({ error: 'Please log in to your member account' });
+  src\server\routes.ts:82:  }
+  src\server\routes.ts:83:
+  src\server\routes.ts:84:  const token = authHeader.split(' ')[1];
+  src\server\routes.ts:85:  const session = memberSessions.get(token);
+  src\server\routes.ts:86:  if (!session || Date.now() > session.expiresAt) {
+  src\server\routes.ts:87:    if (session) memberSessions.delete(token);
+  src\server\routes.ts:88:    return res.status(401).json({ error: 'Member session expired. Please log in again.' });
+  src\server\routes.ts:456:  if (order.memberId !== session.memberId) return res.status(403).json({ error: 'Forbidden' });
+  src\server\routes.ts:457:  res.json({ order });
+  src\server\routes.ts:458:});
+  src\server\routes.ts:459:
+  src\server\routes.ts:460:// ==========================================
+  src\server\routes.ts:461:// 4. ADMIN PRICING & ORDER MANAGEMENT
+  src\server\routes.ts:462:// ==========================================
+  src\server\routes.ts:463:
+> src\server\routes.ts:464:apiRouter.post('/admin/pricing', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:465:  try {
+  src\server\routes.ts:466:    const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:467:    const { priceUsd, lifetimePriceUsd, reason } = req.body;
+  src\server\routes.ts:468:
+  src\server\routes.ts:469:    let annualHistory = null;
+  src\server\routes.ts:470:    let lifetimeHistory = null;
+  src\server\routes.ts:471:
+  src\server\routes.ts:472:    if (priceUsd !== undefined && priceUsd !== null && priceUsd !== '') {
+  src\server\routes.ts:473:      annualHistory = db.setAnnualPrice(Number(priceUsd), session.username, reason);
+  src\server\routes.ts:474:    }
+  src\server\routes.ts:475:
+  src\server\routes.ts:476:    if (lifetimePriceUsd !== undefined && lifetimePriceUsd !== null && lifetimePriceUsd !== '') {
+  src\server\routes.ts:477:      lifetimeHistory = db.setLifetimePrice(Number(lifetimePriceUsd), session.username, reason);
+  src\server\routes.ts:478:    }
+  src\server\routes.ts:479:
+  src\server\routes.ts:480:    const config = db.getConfig();
+  src\server\routes.ts:481:    res.json({
+  src\server\routes.ts:482:      success: true,
+  src\server\routes.ts:485:      annualHistory,
+  src\server\routes.ts:486:      lifetimeHistory,
+  src\server\routes.ts:487:    });
+  src\server\routes.ts:488:  } catch (err: any) {
+  src\server\routes.ts:489:    res.status(400).json({ error: err.message || 'Failed to update pricing' });
+  src\server\routes.ts:490:  }
+  src\server\routes.ts:491:});
+  src\server\routes.ts:492:
+> src\server\routes.ts:493:apiRouter.get('/admin/pricing-history', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:494:  const config = db.getConfig();
+  src\server\routes.ts:495:  res.json({
+  src\server\routes.ts:496:    annualPriceUsd: config.annualPriceUsd,
+  src\server\routes.ts:497:    priceHistory: config.priceHistory,
+  src\server\routes.ts:498:  });
+  src\server\routes.ts:499:});
+  src\server\routes.ts:500:
+> src\server\routes.ts:501:apiRouter.post('/admin/settings', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:502:  try {
+  src\server\routes.ts:503:    const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:504:    const updates = req.body;
+  src\server\routes.ts:505:    const updated = db.updateSystemConfig(updates, session.username);
+  src\server\routes.ts:506:    res.json({ success: true, config: updated });
+  src\server\routes.ts:507:  } catch (err: any) {
+  src\server\routes.ts:508:    res.status(400).json({ error: err.message || 'Failed to update settings' });
+  src\server\routes.ts:509:  }
+  src\server\routes.ts:510:});
+  src\server\routes.ts:511:
+  src\server\routes.ts:512:// --- ADMIN DISCOUNT CODE ROUTES ---
+  src\server\routes.ts:513:
+> src\server\routes.ts:514:apiRouter.get('/admin/discount-codes', requireAdmin, (_req: Request, res: Response) => {
+  src\server\routes.ts:515:  res.json({ discountCodes: db.getAllDiscountCodes(), redemptions: db.getDiscountRedemptions() });
+  src\server\routes.ts:516:});
+  src\server\routes.ts:517:
+> src\server\routes.ts:518:apiRouter.post('/admin/discount-codes', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:519:  try {
+  src\server\routes.ts:520:    const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:521:    const { code, percentage, maxUses } = req.body || {};
+  src\server\routes.ts:522:
+  src\server\routes.ts:523:    const discount = db.createDiscountCode(
+  src\server\routes.ts:524:      code,
+  src\server\routes.ts:525:      percentage,
+  src\server\routes.ts:526:      maxUses,
+  src\server\routes.ts:527:      session.username
+  src\server\routes.ts:528:    );
+  src\server\routes.ts:529:
+  src\server\routes.ts:530:    res.status(201).json({ success: true, discount });
+  src\server\routes.ts:531:  } catch (error: any) {
+  src\server\routes.ts:532:    res.status(400).json({ success: false, error: error.message });
+  src\server\routes.ts:533:  }
+  src\server\routes.ts:534:});
+  src\server\routes.ts:535:
+> src\server\routes.ts:536:apiRouter.patch('/admin/discount-codes/:id', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:537:  try {
+  src\server\routes.ts:538:    const { active } = req.body || {};
+  src\server\routes.ts:539:
+  src\server\routes.ts:540:    if (typeof active !== 'boolean') {
+  src\server\routes.ts:541:      return res.status(400).json({
+  src\server\routes.ts:542:        success: false,
+  src\server\routes.ts:543:        error: 'Active must be true or false',
+  src\server\routes.ts:544:      });
+  src\server\routes.ts:545:    }
+  src\server\routes.ts:546:
+  src\server\routes.ts:547:    const discount = db.setDiscountCodeActive(
+  src\server\routes.ts:548:      String(req.params.id),
+  src\server\routes.ts:549:      active
+  src\server\routes.ts:550:    );
+  src\server\routes.ts:551:
+  src\server\routes.ts:552:    res.json({ success: true, discount });
+  src\server\routes.ts:553:  } catch (error: any) {
+  src\server\routes.ts:554:    res.status(400).json({ success: false, error: error.message });
+  src\server\routes.ts:555:  }
+  src\server\routes.ts:556:});
+> src\server\routes.ts:557:apiRouter.get('/admin/members', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:558:  const members = db.getAllMembers().map((m) => ({
+  src\server\routes.ts:559:    id: m.id,
+  src\server\routes.ts:560:    name: m.name,
+  src\server\routes.ts:561:    email: m.email,
+  src\server\routes.ts:562:    activePlan: m.activePlan,
+  src\server\routes.ts:563:    planStatus: m.planStatus,
+  src\server\routes.ts:564:    trialExpiresAt: m.trialExpiresAt,
+  src\server\routes.ts:565:    annualExpiresAt: m.annualExpiresAt,
+  src\server\routes.ts:566:    trialUsed: m.trialUsed,
+  src\server\routes.ts:567:    licenseId: m.licenseId,
+  src\server\routes.ts:568:    licensePrefix: m.licensePrefix,
+  src\server\routes.ts:569:    createdAt: m.createdAt,
+  src\server\routes.ts:570:    lastLoginAt: m.lastLoginAt,
+  src\server\routes.ts:571:  }));
+  src\server\routes.ts:572:  res.json({ members });
+  src\server\routes.ts:573:});
+  src\server\routes.ts:574:
+> src\server\routes.ts:575:apiRouter.get('/admin/orders', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:576:  const orders = db.getAllOrders();
+  src\server\routes.ts:577:  res.json({ orders });
+  src\server\routes.ts:578:});
+  src\server\routes.ts:579:
+  src\server\routes.ts:580:// ==========================================
+  src\server\routes.ts:581:// 5. ADMIN AUTH & GENERAL ADMIN ROUTES
+  src\server\routes.ts:582:// ==========================================
+  src\server\routes.ts:583:
+  src\server\routes.ts:584:apiRouter.get('/admin/setup-status', (req: Request, res: Response) => {
+  src\server\routes.ts:585:  res.json({
+  src\server\routes.ts:586:    needsSetup: !db.hasAdminUser(),
+  src\server\routes.ts:587:  });
+  src\server\routes.ts:588:});
+  src\server\routes.ts:589:
+  src\server\routes.ts:590:apiRouter.post('/admin/setup', rateLimiter(5, 60000), (req: Request, res: Response) => {
+  src\server\routes.ts:591:  try {
+  src\server\routes.ts:592:    const expectedSetupKey = process.env.ADMIN_SETUP_KEY;
+  src\server\routes.ts:593:    const suppliedSetupKey = req.get('x-admin-setup-key');
+  src\server\routes.ts:611:    }
+  src\server\routes.ts:612:    if (!password || typeof password !== 'string' || password.length < 8) {
+  src\server\routes.ts:613:      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  src\server\routes.ts:614:    }
+  src\server\routes.ts:615:
+  src\server\routes.ts:616:    const admin = db.createFirstAdmin(username, password);
+  src\server\routes.ts:617:
+  src\server\routes.ts:618:    const token = crypto.randomBytes(32).toString('hex');
+> src\server\routes.ts:619:    adminSessions.set(token, {
+  src\server\routes.ts:620:      token,
+  src\server\routes.ts:621:      adminId: admin.id,
+  src\server\routes.ts:622:      username: admin.username,
+  src\server\routes.ts:623:      createdAt: Date.now(),
+  src\server\routes.ts:624:      expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+  src\server\routes.ts:625:    });
+  src\server\routes.ts:626:
+  src\server\routes.ts:627:    res.json({
+  src\server\routes.ts:628:      success: true,
+  src\server\routes.ts:629:      token,
+  src\server\routes.ts:630:      admin: {
+  src\server\routes.ts:631:        id: admin.id,
+  src\server\routes.ts:632:        username: admin.username,
+  src\server\routes.ts:633:        role: admin.role,
+  src\server\routes.ts:634:      },
+  src\server\routes.ts:635:    });
+  src\server\routes.ts:636:  } catch (err: any) {
+  src\server\routes.ts:637:    res.status(400).json({ error: err.message || 'Setup failed' });
+  src\server\routes.ts:638:  }
+  src\server\routes.ts:639:});
+  src\server\routes.ts:640:
+> src\server\routes.ts:641:apiRouter.post('/admin/login', rateLimiter(10, 60000), (req: Request, res: Response) => {
+  src\server\routes.ts:642:  const { username, password } = req.body;
+  src\server\routes.ts:643:  const ip = getClientIp(req);
+  src\server\routes.ts:644:
+  src\server\routes.ts:645:  if (!username || !password) {
+  src\server\routes.ts:646:    return res.status(400).json({ error: 'Username and password are required' });
+  src\server\routes.ts:647:  }
+  src\server\routes.ts:648:
+  src\server\routes.ts:649:  const admin = db.getAdminByUsername(username);
+  src\server\routes.ts:650:  if (!admin) {
+  src\server\routes.ts:651:    db.logAudit({
+  src\server\routes.ts:652:      action: 'AUTH_FAILED',
+  src\server\routes.ts:653:      actor: username,
+  src\server\routes.ts:654:      details: 'Failed login attempt: admin user not found',
+  src\server\routes.ts:655:      ip,
+  src\server\routes.ts:656:    });
+  src\server\routes.ts:657:    return res.status(401).json({ error: 'Invalid username or credentials' });
+  src\server\routes.ts:658:  }
+  src\server\routes.ts:659:
+  src\server\routes.ts:666:      actor: username,
+  src\server\routes.ts:667:      details: 'Failed admin login attempt: incorrect password',
+  src\server\routes.ts:668:      ip,
+  src\server\routes.ts:669:    });
+  src\server\routes.ts:670:    return res.status(401).json({ error: 'Invalid username or credentials' });
+  src\server\routes.ts:671:  }
+  src\server\routes.ts:672:
+  src\server\routes.ts:673:  const token = crypto.randomBytes(32).toString('hex');
+> src\server\routes.ts:674:  adminSessions.set(token, {
+  src\server\routes.ts:675:    token,
+  src\server\routes.ts:676:    adminId: admin.id,
+  src\server\routes.ts:677:    username: admin.username,
+  src\server\routes.ts:678:    createdAt: Date.now(),
+  src\server\routes.ts:679:    expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+  src\server\routes.ts:680:  });
+  src\server\routes.ts:681:
+  src\server\routes.ts:682:  db.logAudit({
+  src\server\routes.ts:683:    action: 'ADMIN_LOGIN',
+  src\server\routes.ts:684:    actor: admin.username,
+  src\server\routes.ts:685:    details: 'Administrator authenticated successfully',
+  src\server\routes.ts:686:    ip,
+  src\server\routes.ts:687:  });
+  src\server\routes.ts:688:
+  src\server\routes.ts:689:  res.json({
+  src\server\routes.ts:690:    success: true,
+  src\server\routes.ts:691:    token,
+  src\server\routes.ts:692:    admin: {
+  src\server\routes.ts:693:      id: admin.id,
+  src\server\routes.ts:694:      username: admin.username,
+  src\server\routes.ts:695:      role: admin.role,
+  src\server\routes.ts:696:      lastLoginAt: admin.lastLoginAt,
+  src\server\routes.ts:697:    },
+  src\server\routes.ts:698:  });
+  src\server\routes.ts:699:});
+  src\server\routes.ts:700:
+> src\server\routes.ts:701:apiRouter.post('/admin/logout', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:702:  const authHeader = req.headers.authorization;
+  src\server\routes.ts:703:  if (authHeader) {
+  src\server\routes.ts:704:    const token = authHeader.split(' ')[1];
+> src\server\routes.ts:705:    adminSessions.delete(token);
+  src\server\routes.ts:706:  }
+  src\server\routes.ts:707:  res.json({ success: true });
+  src\server\routes.ts:708:});
+  src\server\routes.ts:709:
+> src\server\routes.ts:710:apiRouter.get('/admin/me', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:711:  const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:712:  const admin = db.getAdminById(session.adminId);
+  src\server\routes.ts:713:  if (!admin) return res.status(404).json({ error: 'Admin not found' });
+  src\server\routes.ts:714:  res.json({
+  src\server\routes.ts:715:    id: admin.id,
+  src\server\routes.ts:716:    username: admin.username,
+  src\server\routes.ts:717:    role: admin.role,
+  src\server\routes.ts:718:    lastLoginAt: admin.lastLoginAt,
+  src\server\routes.ts:719:  });
+  src\server\routes.ts:720:});
+  src\server\routes.ts:721:
+  src\server\routes.ts:722:// Admin Code Generator (Supported access: 1-Day Trial, Annual, and Lifetime Subscriptions)
+> src\server\routes.ts:723:apiRouter.post('/admin/licenses/generate', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:724:  const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:725:  const ip = getClientIp(req);
+  src\server\routes.ts:726:  const { type, durationDays, maxDevices, note } = req.body;
+  src\server\routes.ts:727:
+  src\server\routes.ts:728:  const validTypes: PlanType[] = ['Trial', 'Annual', 'Lifetime'];
+  src\server\routes.ts:729:  const planType: PlanType = validTypes.includes(type) ? type : 'Annual';
+  src\server\routes.ts:730:
+  src\server\routes.ts:731:  const defaultDevices = planType === 'Trial' ? 1 : planType === 'Lifetime' ? 3 : 2;
+  src\server\routes.ts:732:  const parsedDevices = Math.max(1, Math.min(10, Number(maxDevices) || defaultDevices));
+  src\server\routes.ts:733:  const parsedDuration =
+  src\server\routes.ts:734:    planType === 'Trial'
+  src\server\routes.ts:735:      ? Number(durationDays) || 1
+  src\server\routes.ts:736:      : planType === 'Lifetime'
+  src\server\routes.ts:737:      ? Number(durationDays) || 36500
+  src\server\routes.ts:738:      : Number(durationDays) || 365;
+  src\server\routes.ts:739:
+> src\server\routes.ts:740:  const { record, rawCode } = db.createLicense({
+  src\server\routes.ts:741:    type: planType,
+  src\server\routes.ts:742:    durationDays: parsedDuration,
+  src\server\routes.ts:743:    maxDevices: parsedDevices,
+  src\server\routes.ts:744:    note: typeof note === 'string' ? note.slice(0, 150) : '',
+  src\server\routes.ts:745:    gracePeriodHours: 72,
+  src\server\routes.ts:746:    actor: session.username,
+  src\server\routes.ts:747:    ip,
+  src\server\routes.ts:748:  });
+  src\server\routes.ts:749:
+  src\server\routes.ts:750:  res.json({
+  src\server\routes.ts:751:    success: true,
+  src\server\routes.ts:752:    license: record,
+  src\server\routes.ts:753:    accessCode: rawCode,
+  src\server\routes.ts:754:    warning: 'Save this code securely now. Only its cryptographic hash is stored on the server.',
+  src\server\routes.ts:755:  });
+  src\server\routes.ts:756:});
+  src\server\routes.ts:757:
+> src\server\routes.ts:758:apiRouter.get('/admin/licenses', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:759:  const licenses = db.getAllLicenses();
+  src\server\routes.ts:760:  res.json({ licenses });
+  src\server\routes.ts:761:});
+  src\server\routes.ts:762:
+> src\server\routes.ts:763:apiRouter.post('/admin/licenses/:id/revoke', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:764:  const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:765:  const ip = getClientIp(req);
+  src\server\routes.ts:766:  const { id } = req.params;
+  src\server\routes.ts:767:  const { reason } = req.body;
+  src\server\routes.ts:768:
+> src\server\routes.ts:769:  const success = db.revokeLicense(id, reason || 'Administrative action', session.username, ip);
+  src\server\routes.ts:770:  if (!success) return res.status(404).json({ error: 'License not found' });
+  src\server\routes.ts:771:  res.json({ success: true, message: `License ${id} revoked.` });
+  src\server\routes.ts:772:});
+  src\server\routes.ts:773:
+> src\server\routes.ts:774:apiRouter.post('/admin/licenses/:id/renew', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:775:  const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:776:  const ip = getClientIp(req);
+  src\server\routes.ts:777:  const { id } = req.params;
+  src\server\routes.ts:778:  const { additionalDays } = req.body;
+  src\server\routes.ts:779:
+  src\server\routes.ts:780:  const days = Math.max(1, Number(additionalDays) || 365);
+> src\server\routes.ts:781:  const result = db.renewLicense(id, days, session.username, ip);
+  src\server\routes.ts:782:
+  src\server\routes.ts:783:  if (!result.success) return res.status(404).json({ error: 'License not found' });
+  src\server\routes.ts:784:  res.json({ success: true, newExpiry: result.newExpiry });
+  src\server\routes.ts:785:});
+  src\server\routes.ts:786:
+> src\server\routes.ts:787:apiRouter.post('/admin/licenses/:id/reset-devices', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:788:  const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:789:  const ip = getClientIp(req);
+  src\server\routes.ts:790:  const { id } = req.params;
+  src\server\routes.ts:791:
+  src\server\routes.ts:792:  const success = db.resetAllDevices(id, session.username, ip);
+  src\server\routes.ts:793:  if (!success) return res.status(404).json({ error: 'License not found' });
+  src\server\routes.ts:794:  res.json({ success: true, message: 'Device activations reset.' });
+  src\server\routes.ts:795:});
+  src\server\routes.ts:796:
+> src\server\routes.ts:797:apiRouter.delete('/admin/licenses/:id/devices/:deviceId', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:798:  const session = (req as any).admin as AdminSession;
+  src\server\routes.ts:799:  const ip = getClientIp(req);
+  src\server\routes.ts:800:  const { id, deviceId } = req.params;
+  src\server\routes.ts:801:
+  src\server\routes.ts:802:  const license = db.getLicenseById(id);
+  src\server\routes.ts:803:  if (!license) return res.status(404).json({ error: 'License not found' });
+  src\server\routes.ts:804:
+  src\server\routes.ts:805:  const initialCount = license.devices.length;
+  src\server\routes.ts:806:  license.devices = license.devices.filter((d) => d.deviceId !== deviceId);
+  src\server\routes.ts:807:
+  src\server\routes.ts:808:  if (license.devices.length !== initialCount) {
+  src\server\routes.ts:809:    db.logAudit({
+  src\server\routes.ts:810:      action: 'DEVICE_DEACTIVATED',
+  src\server\routes.ts:811:      actor: session.username,
+  src\server\routes.ts:812:      details: `Deactivated device ${deviceId} on license ${id}`,
+  src\server\routes.ts:813:      ip,
+  src\server\routes.ts:814:    });
+  src\server\routes.ts:815:    res.json({ success: true, message: `Device ${deviceId} disconnected.` });
+  src\server\routes.ts:816:  } else {
+  src\server\routes.ts:817:    res.status(404).json({ error: 'Device not found on license' });
+  src\server\routes.ts:818:  }
+  src\server\routes.ts:819:});
+  src\server\routes.ts:820:
+> src\server\routes.ts:821:apiRouter.get('/admin/audit-logs', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:822:  const limit = Math.min(1000, Math.max(10, Number(req.query.limit) || 200));
+  src\server\routes.ts:823:  const actionFilter = typeof req.query.action === 'string' ? req.query.action : undefined;
+  src\server\routes.ts:824:  let logs = db.getAuditLogs(limit);
+  src\server\routes.ts:825:
+  src\server\routes.ts:826:  if (actionFilter && actionFilter !== 'ALL') {
+  src\server\routes.ts:827:    logs = logs.filter((l) => l.action === actionFilter);
+  src\server\routes.ts:828:  }
+  src\server\routes.ts:829:
+  src\server\routes.ts:830:  res.json({
+  src\server\routes.ts:831:    logs,
+  src\server\routes.ts:832:    total: logs.length,
+  src\server\routes.ts:833:    fetchedAt: new Date().toISOString(),
+  src\server\routes.ts:834:  });
+  src\server\routes.ts:835:});
+  src\server\routes.ts:836:
+> src\server\routes.ts:837:apiRouter.get('/admin/stats', requireAdmin, (req: Request, res: Response) => {
+  src\server\routes.ts:838:  const stats = db.getStats();
+  src\server\routes.ts:839:  res.json({ stats });
+  src\server\routes.ts:840:});
+  src\server\routes.ts:841:
+  src\server\routes.ts:842:// ==========================================
+  src\server\routes.ts:843:// 6. PUBLIC DEVICE LICENSE ACTIVATION & KEY REQUEST API
+  src\server\routes.ts:844:// ==========================================
+  src\server\routes.ts:845:
+  src\server\routes.ts:846:apiRouter.post('/license/request-key', rateLimiter(10, 60000), (req: Request, res: Response) => {
+  src\server\routes.ts:847:  const { name, email, plan, solanaWallet } = req.body;
+  src\server\routes.ts:848:  const ip = getClientIp(req);
+  src\server\routes.ts:849:
+  src\server\routes.ts:850:  if (!email || typeof email !== 'string') {
+  src\server\routes.ts:851:    return res.status(400).json({ error: 'Valid email address is required' });
+  src\server\routes.ts:852:  }
+  src\server\routes.ts:853:
+  src\server\routes.ts:854:  const normalizedPlan: PlanType = plan === 'Lifetime' ? 'Lifetime' : plan === 'Annual' ? 'Annual' : 'Trial';
+  src\server\routes.ts:855:
+  src\server\routes.ts:856:  let primaryKeyResult;
+  src\server\routes.ts:857:  let secondaryKeyResult = null;
+  src\server\routes.ts:858:
+  src\server\routes.ts:859:  if (normalizedPlan === 'Lifetime') {
+  src\server\routes.ts:860:    // Lifetime Subscription gets 2 keys, full autopilot
+> src\server\routes.ts:861:    primaryKeyResult = db.createLicense({
+  src\server\routes.ts:862:      type: 'Lifetime',
+  src\server\routes.ts:863:      maxDevices: 2,
+  src\server\routes.ts:864:      durationDays: 36500,
+  src\server\routes.ts:865:      note: `Lifetime Key 1 - ${name || 'User'} (${email})`,
+  src\server\routes.ts:866:      actor: email,
+  src\server\routes.ts:867:      ip,
+  src\server\routes.ts:868:    });
+> src\server\routes.ts:869:    secondaryKeyResult = db.createLicense({
+  src\server\routes.ts:870:      type: 'Lifetime',
+  src\server\routes.ts:871:      maxDevices: 2,
+  src\server\routes.ts:872:      durationDays: 36500,
+  src\server\routes.ts:873:      note: `Lifetime Key 2 (Seat 2) - ${name || 'User'} (${email})`,
+  src\server\routes.ts:874:      actor: email,
+  src\server\routes.ts:875:      ip,
+  src\server\routes.ts:876:    });
+  src\server\routes.ts:877:  } else if (normalizedPlan === 'Annual') {
+  src\server\routes.ts:878:    // Annual Subscription offers 1 key only, full autopilot
+> src\server\routes.ts:879:    primaryKeyResult = db.createLicense({
+  src\server\routes.ts:880:      type: 'Annual',
+  src\server\routes.ts:881:      maxDevices: 1,
+  src\server\routes.ts:882:      durationDays: 365,
+  src\server\routes.ts:883:      note: `Annual Single Key - ${name || 'User'} (${email})`,
+  src\server\routes.ts:884:      actor: email,
+  src\server\routes.ts:885:      ip,
+  src\server\routes.ts:886:    });
+  src\server\routes.ts:887:  } else {
+  src\server\routes.ts:888:    // 1-Day Free Trial (24h) locks autopilot mode, manual trading only, 1 key
+> src\server\routes.ts:889:    primaryKeyResult = db.createLicense({
+  src\server\routes.ts:890:      type: 'Trial',
+  src\server\routes.ts:891:      maxDevices: 1,
+  src\server\routes.ts:892:      durationDays: 1,
+  src\server\routes.ts:893:      note: `1-Day Trial (24h Manual Only) - ${name || 'User'} (${email})`,
+  src\server\routes.ts:894:      actor: email,
+  src\server\routes.ts:895:      ip,
+  src\server\routes.ts:896:    });
+  src\server\routes.ts:897:  }
+  src\server\routes.ts:898:
+  src\server\routes.ts:899:  res.json({
+  src\server\routes.ts:900:    success: true,
+  src\server\routes.ts:901:    plan: normalizedPlan,
+  src\server\routes.ts:902:    primaryKey: primaryKeyResult.rawCode,
+  src\server\routes.ts:903:    secondaryKey: secondaryKeyResult ? secondaryKeyResult.rawCode : null,
+  src\server\routes.ts:904:    durationDays: primaryKeyResult.record.durationDays,
+  src\server\routes.ts:905:    maxDevices: primaryKeyResult.record.maxDevices,
+  src\server\routes.ts:906:    autopilotUnlocked: normalizedPlan !== 'Trial',
+  src\server\routes.ts:907:    instructions: [
+
+
+
+===== FILE: .\src\server\supabaseStartup.ts =====
+
+  src\server\supabaseStartup.ts:1:import { supabase } from './supabase';
+  src\server\supabaseStartup.ts:2:
+> src\server\supabaseStartup.ts:3:export async function verifySupabaseConnection(): Promise<void> {
+  src\server\supabaseStartup.ts:4:  const { error } = await supabase
+  src\server\supabaseStartup.ts:5:    .from('amt_server_state')
+  src\server\supabaseStartup.ts:6:    .select('id')
+  src\server\supabaseStartup.ts:7:    .limit(1);
+  src\server\supabaseStartup.ts:8:
+  src\server\supabaseStartup.ts:9:  if (error) {
+  src\server\supabaseStartup.ts:10:    throw new Error(`Supabase connection failed: ${error.message}`);
+  src\server\supabaseStartup.ts:11:  }
+  src\server\supabaseStartup.ts:12:
+  src\server\supabaseStartup.ts:13:  console.log('[AI Micro Trader] Supabase connection verified');
+  src\server\supabaseStartup.ts:14:}
+
+
+
+===== FILE: .\server.ts =====
+
+  server.ts:1:import express from 'express';
+  server.ts:2:import path from 'path';
+  server.ts:3:import { fileURLToPath } from 'url';
+  server.ts:4:import { apiRouter } from './src/server/routes';
+> server.ts:5:import { verifySupabaseConnection } from './src/server/supabaseStartup';
+  server.ts:6:
+  server.ts:7:const __filename = fileURLToPath(import.meta.url);
+  server.ts:8:const __dirname = path.dirname(__filename);
+  server.ts:9:
+  server.ts:10:async function startServer() {
+> server.ts:11:  await verifySupabaseConnection();
+  server.ts:12:  const app = express();
+  server.ts:13:  const PORT = Number(process.env.PORT) || 3000;
+  server.ts:14:
+  server.ts:15:  // JSON Body parsing
+  server.ts:16:  app.use(express.json());
+  server.ts:17:
+  server.ts:18:  // Mount Licensing & Admin API
+  server.ts:19:  app.use('/api', apiRouter);
+  server.ts:20:
+  server.ts:21:  // Health check
+  server.ts:22:  app.get('/api/health', (req, res) => {
+  server.ts:23:    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  server.ts:24:  });
+  server.ts:25:
+  server.ts:26:  const isProduction = process.env.NODE_ENV === 'production';
+  server.ts:27:
+  server.ts:28:  if (isProduction) {
+  server.ts:29:    const distPath = path.resolve(__dirname, 'dist');
+
+
+

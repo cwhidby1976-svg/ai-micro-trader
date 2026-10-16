@@ -1,0 +1,900 @@
+{
+  "version": 2,
+  "serverSecret": "35d06657593ae9f27e999113d14a63822b7addab3748150dbd45351fe8b57501",
+  "config": {
+    "annualPriceUsd": 10000,
+    "lifetimePriceUsd": 50000,
+    "trialDurationDays": 1,
+    "trialDeviceLimit": 1,
+    "annualDeviceLimit": 2,
+    "lifetimeDeviceLimit": 3,
+    "solReceivingAddress": "NEXTGEN7xM9vP4qL2sY5wZ1k8T3uR6hJ9bC4eF2aD1mE",
+    "solRpcUrl": "https://api.mainnet-beta.solana.com",
+    "priceHistory": [
+      {
+        "id": "price_1792026494325",
+        "plan": "LIFETIME",
+        "oldPriceUsd": null,
+        "newPriceUsd": 50000,
+        "changedAt": "2026-10-15T01:08:14.325Z",
+        "adminUsername": "test_admin",
+        "reason": "Administrative pricing configuration"
+      },
+      {
+        "id": "price_1792026494314",
+        "oldPriceUsd": null,
+        "newPriceUsd": 10000,
+        "changedAt": "2026-10-15T01:08:14.314Z",
+        "adminUsername": "test_admin",
+        "reason": "Administrative pricing configuration"
+      }
+    ]
+  },
+  "discountCodes": [
+    {
+      "id": "disc_42f7d7197a844721",
+      "code": "FREEDOM50",
+      "percentage": 50,
+      "maxUses": 10,
+      "usedCount": 0,
+      "active": true,
+      "createdAt": "2026-10-15T01:09:02.080Z",
+      "createdBy": "test_admin"
+    }
+  ],
+  "discountRedemptions": [],
+  "adminUsers": [
+    {
+      "id": "admin_cbfea8787249fe7a",
+      "username": "test_admin",
+      "passwordHash": "d715991f13d697021686cc6a82f14980ad8fb6d3d4a0666e533b4c76c7c103ca77f6004500b9d3dc6db65a14d2b97f1867d21716bb98f7b3f6ff61f88fffaa5f",
+      "salt": "22d2ed30be2cadfe8f023db9339dd389",
+      "role": "superadmin",
+      "createdAt": "2026-10-14T17:55:24.301Z",
+      "lastLoginAt": "2026-10-15T01:12:38.579Z",
+      "failedLoginAttempts": 0,
+      "lockedUntil": null
+    }
+  ],
+  "members": [
+    {
+      "id": "mem_245e2d2d0faa224d",
+      "name": "Trial Trader",
+      "email": "trial_test_1792000526006@example.com",
+      "passwordHash": "6fefbefd1679614166177fcb451c59f57f68e84b48c6b7999cf71bec93f46943711ac40f437738f2530a65fd2229cd2619a97e96b182cca27e08a2cdc5ffde5f",
+      "salt": "6de33f3e8733f0991e4722593c57dc42",
+      "isEmailVerified": true,
+      "activePlan": "TRIAL",
+      "planStatus": "TRIAL_ACTIVE",
+      "trialExpiresAt": "2026-10-15T17:55:26.145Z",
+      "annualExpiresAt": null,
+      "trialUsed": true,
+      "licenseId": "lic_04fbe3a5e3b0388e",
+      "licensePrefix": "MTR-B344",
+      "createdAt": "2026-10-14T17:55:26.138Z",
+      "lastLoginAt": "2026-10-14T17:55:26.139Z",
+      "termsAcceptedAt": "2026-10-14T17:55:26.139Z"
+    },
+    {
+      "id": "mem_423e9ce385692c25",
+      "name": "Annual Pro Trader",
+      "email": "annual_test_1792000526155@example.com",
+      "passwordHash": "ab5c8e97bdbdbcecafdfe1bcf0990c35d760b88c1497b8353a20876fec4b881f00b4529adec1533bac7e1967e6888b1e841f6fdf1b5f795a09d38e5f567d5aa1",
+      "salt": "c76e4d51112ee248f8a7d83f20eba859",
+      "isEmailVerified": true,
+      "activePlan": "ANNUAL",
+      "planStatus": "ACTIVE",
+      "trialExpiresAt": null,
+      "annualExpiresAt": "2027-10-14T17:55:26.261Z",
+      "trialUsed": false,
+      "licenseId": null,
+      "licensePrefix": null,
+      "createdAt": "2026-10-14T17:55:26.256Z",
+      "lastLoginAt": "2026-10-14T17:55:26.256Z",
+      "termsAcceptedAt": "2026-10-14T17:55:26.256Z"
+    },
+    {
+      "id": "mem_04c8f5ba1340ec0a",
+      "name": "Expired Trader",
+      "email": "expired_1792000527425@example.com",
+      "passwordHash": "a4cb78b86dc6b99e46dc160f69898c7ce43fe4b744dc1df720d7ac172b9cd5326d90b925bf4aa064f4ea041118b79894357cf31a08a4021b506c2ae9b9f9c082",
+      "salt": "b0ab54eb78ab3024b7d5fbb54617f038",
+      "isEmailVerified": true,
+      "activePlan": "ANNUAL",
+      "planStatus": "ANNUAL_EXPIRED",
+      "trialExpiresAt": null,
+      "annualExpiresAt": "2026-10-14T17:55:17.521Z",
+      "trialUsed": false,
+      "licenseId": null,
+      "licensePrefix": null,
+      "createdAt": "2026-10-14T17:55:27.516Z",
+      "lastLoginAt": "2026-10-14T17:55:27.516Z",
+      "termsAcceptedAt": "2026-10-14T17:55:27.516Z"
+    },
+    {
+      "id": "mem_ac4fd3f060efd1ea",
+      "name": "Trial Trader",
+      "email": "trial_test_1792001164727@example.com",
+      "passwordHash": "96a0402f99272dab80cabe14e8a7769024d02ea57229b1cc0ec5a690ddd964b0cb97b4b9a25f2e002d5abc70dd3374084f4e5dea309d710281dfb1104f8d5d7f",
+      "salt": "25a14b589601f276252d76ca5cc83e32",
+      "isEmailVerified": true,
+      "activePlan": "TRIAL",
+      "planStatus": "TRIAL_ACTIVE",
+      "trialExpiresAt": "2026-10-15T18:06:04.835Z",
+      "annualExpiresAt": null,
+      "trialUsed": true,
+      "licenseId": "lic_44a92c2e411b8a34",
+      "licensePrefix": "MTR-WFD9",
+      "createdAt": "2026-10-14T18:06:04.824Z",
+      "lastLoginAt": "2026-10-14T18:06:04.824Z",
+      "termsAcceptedAt": "2026-10-14T18:06:04.824Z"
+    },
+    {
+      "id": "mem_81c7ebbd1f9fbed1",
+      "name": "Annual Pro Trader",
+      "email": "annual_test_1792001164845@example.com",
+      "passwordHash": "999bcf4142c3ad8391718778ec14e500159631d8bc743319ceb23517499746eb92caa728a3bdaa915df34717dee863456e824260aeca1196b3a1b7f7ddacbdb2",
+      "salt": "7ef1b3c53c0c14536391039f109b6079",
+      "isEmailVerified": true,
+      "activePlan": "ANNUAL",
+      "planStatus": "ACTIVE",
+      "trialExpiresAt": null,
+      "annualExpiresAt": "2027-10-14T18:06:04.944Z",
+      "trialUsed": false,
+      "licenseId": null,
+      "licensePrefix": null,
+      "createdAt": "2026-10-14T18:06:04.938Z",
+      "lastLoginAt": "2026-10-14T18:06:04.938Z",
+      "termsAcceptedAt": "2026-10-14T18:06:04.938Z"
+    },
+    {
+      "id": "mem_91f8f61433d52a00",
+      "name": "Expired Trader",
+      "email": "expired_1792001166037@example.com",
+      "passwordHash": "89ed463ee05e1dfafb21eec45e2474f444cccfe818770d8069407fd83f76e07c95c7ffdb1b61958a636640584f18f7c7c171e4175e9e71e14d033a22ca3f346a",
+      "salt": "62aecd6cacbd100d501adfa5b04019a1",
+      "isEmailVerified": true,
+      "activePlan": "ANNUAL",
+      "planStatus": "ANNUAL_EXPIRED",
+      "trialExpiresAt": null,
+      "annualExpiresAt": "2026-10-14T18:05:56.148Z",
+      "trialUsed": false,
+      "licenseId": null,
+      "licensePrefix": null,
+      "createdAt": "2026-10-14T18:06:06.141Z",
+      "lastLoginAt": "2026-10-14T18:06:06.141Z",
+      "termsAcceptedAt": "2026-10-14T18:06:06.141Z"
+    }
+  ],
+  "orders": [],
+  "licenses": [
+    {
+      "id": "lic_38107899b5bf2e92",
+      "codeHash": "5c203ef2de01eae7bc15dddd1dc1c8265814c692eb4158ad11a0d5afbba8cdb4",
+      "codePrefix": "MTR-YRL7",
+      "type": "Monthly",
+      "status": "REVOKED",
+      "createdAt": "2026-10-14T17:55:24.550Z",
+      "expiresAt": "2027-01-12T17:55:24.550Z",
+      "durationDays": 90,
+      "maxDevices": 2,
+      "note": "Test Customer A",
+      "gracePeriodHours": 72,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-14T17:55:24.550Z",
+          "action": "CREATED",
+          "details": "Generated Monthly license for max 2 devices"
+        },
+        {
+          "timestamp": "2026-10-14T17:55:24.557Z",
+          "action": "DEVICE_ACTIVATED",
+          "details": "Device WIN-HWID-DESKTOP-9921 (windows) activated"
+        },
+        {
+          "timestamp": "2026-10-14T17:55:24.563Z",
+          "action": "DEVICE_ACTIVATED",
+          "details": "Device AND-AID-SAMSUNG-4412 (android) activated"
+        },
+        {
+          "timestamp": "2026-10-14T17:55:24.576Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: Fraudulent chargeback detected"
+        },
+        {
+          "timestamp": "2026-10-14T17:55:24.590Z",
+          "action": "DEVICES_RESET",
+          "details": "Reset all 2 device activations by test_admin"
+        },
+        {
+          "timestamp": "2026-10-15T01:10:08.946Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: dont pay"
+        }
+      ],
+      "revokedAt": "2026-10-15T01:10:08.946Z",
+      "revocationReason": "dont pay",
+      "renewedAt": "2026-10-14T17:55:24.582Z"
+    },
+    {
+      "id": "lic_133eddc4b26bc86d",
+      "codeHash": "8f7b56164e0f6cb9e1f697fdfcb558f0da66548188191cf64873da12c10e8a0e",
+      "codePrefix": "MTR-4RJX",
+      "type": "Trial",
+      "status": "REVOKED",
+      "createdAt": "2026-10-14T17:55:24.596Z",
+      "expiresAt": "2026-10-14T17:53:44.603Z",
+      "durationDays": 1,
+      "maxDevices": 1,
+      "note": "Expiring Test",
+      "gracePeriodHours": 72,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-14T17:55:24.596Z",
+          "action": "CREATED",
+          "details": "Generated Trial license for max 1 devices"
+        },
+        {
+          "timestamp": "2026-10-15T01:10:22.836Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: dont pay"
+        }
+      ],
+      "revokedAt": "2026-10-15T01:10:22.836Z",
+      "revocationReason": "dont pay"
+    },
+    {
+      "id": "lic_04fbe3a5e3b0388e",
+      "codeHash": "07c78799dba132befa0369993e5abc3d4033b8e322fc10602545f5c915d5ca8c",
+      "codePrefix": "MTR-B344",
+      "type": "Trial",
+      "status": "REVOKED",
+      "createdAt": "2026-10-14T17:55:26.146Z",
+      "expiresAt": "2026-10-15T17:55:26.146Z",
+      "durationDays": 1,
+      "maxDevices": 1,
+      "note": "1-Day Free Trial for trial_test_1792000526006@example.com",
+      "gracePeriodHours": 24,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-14T17:55:26.146Z",
+          "action": "CREATED",
+          "details": "Generated Trial license for max 1 devices"
+        },
+        {
+          "timestamp": "2026-10-15T01:10:25.135Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: dont pay"
+        }
+      ],
+      "memberId": "mem_245e2d2d0faa224d",
+      "revokedAt": "2026-10-15T01:10:25.135Z",
+      "revocationReason": "dont pay"
+    },
+    {
+      "id": "lic_cac6b98b5c2c7bbd",
+      "codeHash": "16ae15cbffe6fc5d36cff145804e509b45f1f8a5c9776d4506bdabb2be3adb1b",
+      "codePrefix": "MTR-PA5D",
+      "type": "Monthly",
+      "status": "REVOKED",
+      "createdAt": "2026-10-14T18:06:03.742Z",
+      "expiresAt": "2027-01-12T18:06:03.740Z",
+      "durationDays": 90,
+      "maxDevices": 2,
+      "note": "Test Customer A",
+      "gracePeriodHours": 72,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-14T18:06:03.742Z",
+          "action": "CREATED",
+          "details": "Generated Monthly license for max 2 devices"
+        },
+        {
+          "timestamp": "2026-10-14T18:06:03.754Z",
+          "action": "DEVICE_ACTIVATED",
+          "details": "Device WIN-HWID-DESKTOP-9921 (windows) activated"
+        },
+        {
+          "timestamp": "2026-10-14T18:06:03.760Z",
+          "action": "DEVICE_ACTIVATED",
+          "details": "Device AND-AID-SAMSUNG-4412 (android) activated"
+        },
+        {
+          "timestamp": "2026-10-14T18:06:03.774Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: Fraudulent chargeback detected"
+        },
+        {
+          "timestamp": "2026-10-14T18:06:03.786Z",
+          "action": "DEVICES_RESET",
+          "details": "Reset all 2 device activations by test_admin"
+        },
+        {
+          "timestamp": "2026-10-15T01:10:28.195Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: dont pay"
+        }
+      ],
+      "revokedAt": "2026-10-15T01:10:28.195Z",
+      "revocationReason": "dont pay",
+      "renewedAt": "2026-10-14T18:06:03.780Z"
+    },
+    {
+      "id": "lic_9474acaad9a4c354",
+      "codeHash": "e2b13dcdc8a6a7fa713216c93af9c6668f34f22ef334603065b02d718cae226d",
+      "codePrefix": "MTR-YBLD",
+      "type": "Trial",
+      "status": "REVOKED",
+      "createdAt": "2026-10-14T18:06:03.791Z",
+      "expiresAt": "2026-10-14T18:04:23.796Z",
+      "durationDays": 1,
+      "maxDevices": 1,
+      "note": "Expiring Test",
+      "gracePeriodHours": 72,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-14T18:06:03.791Z",
+          "action": "CREATED",
+          "details": "Generated Trial license for max 1 devices"
+        },
+        {
+          "timestamp": "2026-10-15T01:10:31.505Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: dont pay"
+        }
+      ],
+      "revokedAt": "2026-10-15T01:10:31.505Z",
+      "revocationReason": "dont pay"
+    },
+    {
+      "id": "lic_44a92c2e411b8a34",
+      "codeHash": "e89d612e0336de946b5c0805b81add82ac07c7d63500bfc976026587ca481831",
+      "codePrefix": "MTR-WFD9",
+      "type": "Trial",
+      "status": "REVOKED",
+      "createdAt": "2026-10-14T18:06:04.836Z",
+      "expiresAt": "2026-10-15T18:06:04.836Z",
+      "durationDays": 1,
+      "maxDevices": 1,
+      "note": "1-Day Free Trial for trial_test_1792001164727@example.com",
+      "gracePeriodHours": 24,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-14T18:06:04.836Z",
+          "action": "CREATED",
+          "details": "Generated Trial license for max 1 devices"
+        },
+        {
+          "timestamp": "2026-10-15T01:10:34.991Z",
+          "action": "REVOKED",
+          "details": "Revoked by test_admin. Reason: dont pay"
+        }
+      ],
+      "memberId": "mem_ac4fd3f060efd1ea",
+      "revokedAt": "2026-10-15T01:10:34.991Z",
+      "revocationReason": "dont pay"
+    },
+    {
+      "id": "lic_96d2a783f5db180e",
+      "codeHash": "f5e2d53a862d2b006e886e44e82ad8534d83d3ed2b4c22f00d2e9e1b6f99394e",
+      "codePrefix": "MTR-5FPZ",
+      "type": "Annual",
+      "status": "NOT_ACTIVATED",
+      "createdAt": "2026-10-15T01:13:21.306Z",
+      "expiresAt": "2027-10-15T01:13:21.306Z",
+      "durationDays": 365,
+      "maxDevices": 2,
+      "note": "Owner",
+      "gracePeriodHours": 72,
+      "devices": [],
+      "history": [
+        {
+          "timestamp": "2026-10-15T01:13:21.306Z",
+          "action": "CREATED",
+          "details": "Generated Annual license for max 2 devices"
+        }
+      ]
+    },
+    {
+      "id": "lic_53a3486aada49b72",
+      "codeHash": "6183bd989bb133041e466e2ee54a6cc18f637d4af8b88dcc637b05f14c5736b2",
+      "codePrefix": "MTR-KRSB",
+      "type": "Trial",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-15T01:18:33.545Z",
+      "expiresAt": "2026-10-16T01:18:33.545Z",
+      "durationDays": 1,
+      "maxDevices": 1,
+      "note": "Owner",
+      "gracePeriodHours": 72,
+      "devices": [
+        {
+          "deviceId": "WIN-HWID-MV8SOT90-OOQ7CUFD",
+          "platform": "windows",
+          "deviceName": "Windows Trading Terminal",
+          "activatedAt": "2026-10-15T04:36:31.108Z",
+          "lastSeenAt": "2026-10-15T04:36:31.108Z",
+          "ipAddress": "127.0.0.1"
+        }
+      ],
+      "history": [
+        {
+          "timestamp": "2026-10-15T01:18:33.545Z",
+          "action": "CREATED",
+          "details": "Generated Trial license for max 1 devices"
+        },
+        {
+          "timestamp": "2026-10-15T04:36:31.108Z",
+          "action": "DEVICE_ACTIVATED",
+          "details": "Device WIN-HWID-MV8SOT90-OOQ7CUFD (windows) activated"
+        }
+      ]
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "audit_12d547fa33e8",
+      "timestamp": "2026-10-15T04:36:31.113Z",
+      "action": "LICENSE_ACTIVATED",
+      "actor": "WIN-HWID-MV8SOT90-OOQ7CUFD",
+      "details": "License lic_53a3486aada49b72 activated on windows",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_c3178cdbbc7b",
+      "timestamp": "2026-10-15T01:18:33.551Z",
+      "action": "LICENSE_CREATED",
+      "actor": "test_admin",
+      "details": "Created Trial license lic_53a3486aada49b72 (MTR-KRSB...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_1faf2d3a437f",
+      "timestamp": "2026-10-15T01:13:21.311Z",
+      "action": "LICENSE_CREATED",
+      "actor": "test_admin",
+      "details": "Created Annual license lic_96d2a783f5db180e (MTR-5FPZ...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_93e97bea7f82",
+      "timestamp": "2026-10-15T01:12:38.583Z",
+      "action": "ADMIN_LOGIN",
+      "actor": "test_admin",
+      "details": "Administrator authenticated successfully",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_f187e426d38a",
+      "timestamp": "2026-10-15T01:10:34.996Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_44a92c2e411b8a34. Reason: dont pay",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_e8f19b0c2cda",
+      "timestamp": "2026-10-15T01:10:31.511Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_9474acaad9a4c354. Reason: dont pay",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_cfc60dd8f509",
+      "timestamp": "2026-10-15T01:10:28.199Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_cac6b98b5c2c7bbd. Reason: dont pay",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_d02244eb9529",
+      "timestamp": "2026-10-15T01:10:25.139Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_04fbe3a5e3b0388e. Reason: dont pay",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_6e1889bd5def",
+      "timestamp": "2026-10-15T01:10:22.839Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_133eddc4b26bc86d. Reason: dont pay",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_50f1080eba9e",
+      "timestamp": "2026-10-15T01:10:08.952Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_38107899b5bf2e92. Reason: dont pay",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_1586b73096d9",
+      "timestamp": "2026-10-15T01:09:37.114Z",
+      "action": "ADMIN_LOGIN",
+      "actor": "test_admin",
+      "details": "Administrator authenticated successfully",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_77284ebe0d95",
+      "timestamp": "2026-10-15T01:08:14.331Z",
+      "action": "PRICE_CHANGED",
+      "actor": "test_admin",
+      "details": "Lifetime price updated from Unconfigured to $50000",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_4c87f18c207e",
+      "timestamp": "2026-10-15T01:08:14.319Z",
+      "action": "PRICE_CHANGED",
+      "actor": "test_admin",
+      "details": "Annual price updated from Unconfigured to $10000",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_c8b964fc5d81",
+      "timestamp": "2026-10-15T01:05:28.047Z",
+      "action": "ADMIN_LOGIN",
+      "actor": "test_admin",
+      "details": "Administrator authenticated successfully",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_76c776b03cad",
+      "timestamp": "2026-10-15T01:02:01.227Z",
+      "action": "ADMIN_LOGIN",
+      "actor": "test_admin",
+      "details": "Administrator authenticated successfully",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_098275018878",
+      "timestamp": "2026-10-14T18:06:06.604Z",
+      "action": "CONFIG_UPDATED",
+      "actor": "userB",
+      "details": "User API credentials updated for owner user_b_1792001166150",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_7bb562382f3b",
+      "timestamp": "2026-10-14T18:06:06.318Z",
+      "action": "CONFIG_UPDATED",
+      "actor": "userA",
+      "details": "User API credentials updated for owner user_a_1792001166150",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_4a185bd921dc",
+      "timestamp": "2026-10-14T18:06:06.144Z",
+      "action": "MEMBER_REGISTERED",
+      "actor": "expired_1792001166037@example.com",
+      "details": "New member account created: Expired Trader (expired_1792001166037@example.com)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_f4cb1c1b3b46",
+      "timestamp": "2026-10-14T18:06:06.027Z",
+      "action": "CONFIG_UPDATED",
+      "actor": "trial_test_1792001164727@example.com",
+      "details": "User API credentials updated for owner mem_ac4fd3f060efd1ea",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_270f03fa35a4",
+      "timestamp": "2026-10-14T18:06:04.941Z",
+      "action": "MEMBER_REGISTERED",
+      "actor": "annual_test_1792001164845@example.com",
+      "details": "New member account created: Annual Pro Trader (annual_test_1792001164845@example.com)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_70963446c11d",
+      "timestamp": "2026-10-14T18:06:04.843Z",
+      "action": "TRIAL_STARTED",
+      "actor": "trial_test_1792001164727@example.com",
+      "details": "1-Day Free Trial initiated for trial_test_1792001164727@example.com (Expires 2026-10-15T18:06:04.835Z)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_3af0e9f29e3e",
+      "timestamp": "2026-10-14T18:06:04.838Z",
+      "action": "LICENSE_CREATED",
+      "actor": "trial_test_1792001164727@example.com",
+      "details": "Created Trial license lic_44a92c2e411b8a34 (MTR-WFD9...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_d3b14bb4eeda",
+      "timestamp": "2026-10-14T18:06:04.826Z",
+      "action": "MEMBER_REGISTERED",
+      "actor": "trial_test_1792001164727@example.com",
+      "details": "New member account created: Trial Trader (trial_test_1792001164727@example.com)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_0abddf217b6f",
+      "timestamp": "2026-10-14T18:06:03.793Z",
+      "action": "LICENSE_CREATED",
+      "actor": "test_admin",
+      "details": "Created Trial license lic_9474acaad9a4c354 (MTR-YBLD...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_f331d85d219b",
+      "timestamp": "2026-10-14T18:06:03.788Z",
+      "action": "DEVICE_RESET",
+      "actor": "test_admin",
+      "details": "Reset all 2 device activations for license lic_cac6b98b5c2c7bbd",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_2f4a4f5275f8",
+      "timestamp": "2026-10-14T18:06:03.783Z",
+      "action": "LICENSE_RENEWED",
+      "actor": "test_admin",
+      "details": "Renewed license lic_cac6b98b5c2c7bbd (+60 days, expires 2027-01-12T18:06:03.740Z)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_3fd6b6576fa0",
+      "timestamp": "2026-10-14T18:06:03.777Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_cac6b98b5c2c7bbd. Reason: Fraudulent chargeback detected",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_351a18507274",
+      "timestamp": "2026-10-14T18:06:03.771Z",
+      "action": "AUTH_FAILED",
+      "actor": "ANY-DEV",
+      "details": "Attempted activation with invalid access code",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_30f7f52b6fc9",
+      "timestamp": "2026-10-14T18:06:03.764Z",
+      "action": "LICENSE_ACTIVATED",
+      "actor": "AND-AID-SAMSUNG-4412",
+      "details": "License lic_cac6b98b5c2c7bbd activated on android",
+      "ip": "192.168.1.11"
+    },
+    {
+      "id": "audit_8c9b9a550180",
+      "timestamp": "2026-10-14T18:06:03.756Z",
+      "action": "LICENSE_ACTIVATED",
+      "actor": "WIN-HWID-DESKTOP-9921",
+      "details": "License lic_cac6b98b5c2c7bbd activated on windows",
+      "ip": "192.168.1.10"
+    },
+    {
+      "id": "audit_5223748ea2b4",
+      "timestamp": "2026-10-14T18:06:03.746Z",
+      "action": "LICENSE_CREATED",
+      "actor": "test_admin",
+      "details": "Created Monthly license lic_cac6b98b5c2c7bbd (MTR-PA5D...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_bbb4cc593079",
+      "timestamp": "2026-10-14T17:55:27.923Z",
+      "action": "CONFIG_UPDATED",
+      "actor": "userB",
+      "details": "User API credentials updated for owner user_b_1792000527523",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_7ec4d446f090",
+      "timestamp": "2026-10-14T17:55:27.610Z",
+      "action": "CONFIG_UPDATED",
+      "actor": "userA",
+      "details": "User API credentials updated for owner user_a_1792000527523",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_3204c219ada7",
+      "timestamp": "2026-10-14T17:55:27.518Z",
+      "action": "MEMBER_REGISTERED",
+      "actor": "expired_1792000527425@example.com",
+      "details": "New member account created: Expired Trader (expired_1792000527425@example.com)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_125687dccd1e",
+      "timestamp": "2026-10-14T17:55:27.414Z",
+      "action": "CONFIG_UPDATED",
+      "actor": "trial_test_1792000526006@example.com",
+      "details": "User API credentials updated for owner mem_245e2d2d0faa224d",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_8b57c3496449",
+      "timestamp": "2026-10-14T17:55:26.259Z",
+      "action": "MEMBER_REGISTERED",
+      "actor": "annual_test_1792000526155@example.com",
+      "details": "New member account created: Annual Pro Trader (annual_test_1792000526155@example.com)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_64fd6d83a574",
+      "timestamp": "2026-10-14T17:55:26.152Z",
+      "action": "TRIAL_STARTED",
+      "actor": "trial_test_1792000526006@example.com",
+      "details": "1-Day Free Trial initiated for trial_test_1792000526006@example.com (Expires 2026-10-15T17:55:26.145Z)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_c2ee2c56bc04",
+      "timestamp": "2026-10-14T17:55:26.148Z",
+      "action": "LICENSE_CREATED",
+      "actor": "trial_test_1792000526006@example.com",
+      "details": "Created Trial license lic_04fbe3a5e3b0388e (MTR-B344...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_bd891bca657c",
+      "timestamp": "2026-10-14T17:55:26.143Z",
+      "action": "MEMBER_REGISTERED",
+      "actor": "trial_test_1792000526006@example.com",
+      "details": "New member account created: Trial Trader (trial_test_1792000526006@example.com)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_9fa112f075b5",
+      "timestamp": "2026-10-14T17:55:24.599Z",
+      "action": "LICENSE_CREATED",
+      "actor": "test_admin",
+      "details": "Created Trial license lic_133eddc4b26bc86d (MTR-4RJX...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_89dfe68712d9",
+      "timestamp": "2026-10-14T17:55:24.593Z",
+      "action": "DEVICE_RESET",
+      "actor": "test_admin",
+      "details": "Reset all 2 device activations for license lic_38107899b5bf2e92",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_27e9c644243d",
+      "timestamp": "2026-10-14T17:55:24.585Z",
+      "action": "LICENSE_RENEWED",
+      "actor": "test_admin",
+      "details": "Renewed license lic_38107899b5bf2e92 (+60 days, expires 2027-01-12T17:55:24.550Z)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_9a9a6796f0f9",
+      "timestamp": "2026-10-14T17:55:24.579Z",
+      "action": "LICENSE_REVOKED",
+      "actor": "test_admin",
+      "details": "Revoked license lic_38107899b5bf2e92. Reason: Fraudulent chargeback detected",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_c80da85e12cd",
+      "timestamp": "2026-10-14T17:55:24.573Z",
+      "action": "AUTH_FAILED",
+      "actor": "ANY-DEV",
+      "details": "Attempted activation with invalid access code",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_d9ec9627ebba",
+      "timestamp": "2026-10-14T17:55:24.566Z",
+      "action": "LICENSE_ACTIVATED",
+      "actor": "AND-AID-SAMSUNG-4412",
+      "details": "License lic_38107899b5bf2e92 activated on android",
+      "ip": "192.168.1.11"
+    },
+    {
+      "id": "audit_b3cbbe255d07",
+      "timestamp": "2026-10-14T17:55:24.559Z",
+      "action": "LICENSE_ACTIVATED",
+      "actor": "WIN-HWID-DESKTOP-9921",
+      "details": "License lic_38107899b5bf2e92 activated on windows",
+      "ip": "192.168.1.10"
+    },
+    {
+      "id": "audit_c9afe8ae52e7",
+      "timestamp": "2026-10-14T17:55:24.552Z",
+      "action": "LICENSE_CREATED",
+      "actor": "test_admin",
+      "details": "Created Monthly license lic_38107899b5bf2e92 (MTR-YRL7...)",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "audit_f7b6ed9bbced",
+      "timestamp": "2026-10-14T17:55:24.306Z",
+      "action": "ADMIN_CREATED",
+      "actor": "test_admin",
+      "details": "Primary administrator provisioned successfully",
+      "ip": "127.0.0.1"
+    }
+  ],
+  "userApiKeys": [
+    {
+      "ownerId": "mem_245e2d2d0faa224d",
+      "jupiterStatus": "ERROR",
+      "goPlusStatus": "ERROR",
+      "updatedAt": "2026-10-14T17:55:27.409Z",
+      "jupiterApiKeyEncrypted": "91eb6c3d6ec8525cf24e48a15fc9677f:2f623bc500d8d614912ddea16a9e175f07853c154e59a3ff00dcc14369129bdc",
+      "jupiterMasked": "jup_...****5678",
+      "jupiterLastError": "Authentication failed (HTTP 401): Invalid Jupiter API key. Check key on station.jup.ag",
+      "goPlusAppKeyEncrypted": "0232679705a66e3e5c89bcb635ee83fa:99f4d1d31ac2e37b14570d5f6d5fb742bb896504e050edf5a954974e0e63c882",
+      "goPlusAppKeyMasked": "gp_a...****4321",
+      "goPlusApiKeyEncrypted": "0232679705a66e3e5c89bcb635ee83fa:99f4d1d31ac2e37b14570d5f6d5fb742bb896504e050edf5a954974e0e63c882",
+      "goPlusMasked": "gp_a...****4321",
+      "goPlusAppSecretEncrypted": "1c93ac52de575b0a5eb71c817a1e8d95:c82caf54b4a0836903e4ecca4fbdc8fb1328badc2d1e46e570210b05c45040c1",
+      "goPlusAppSecretMasked": "gp_a...****2345",
+      "goPlusLastError": "GoPlus auth error code 4010"
+    },
+    {
+      "ownerId": "user_a_1792000527523",
+      "jupiterStatus": "ERROR",
+      "goPlusStatus": "NOT_CONFIGURED",
+      "updatedAt": "2026-10-14T17:55:27.606Z",
+      "jupiterApiKeyEncrypted": "c338ddc18a92732ebac7be124a7b9354:51f337f894929481cd03412c3cf02d825d1511338ea83fa783b61beee3b7650c",
+      "jupiterMasked": "jup_...****9999",
+      "jupiterLastError": "Authentication failed (HTTP 401): Invalid Jupiter API key. Check key on station.jup.ag"
+    },
+    {
+      "ownerId": "user_b_1792000527523",
+      "jupiterStatus": "NOT_CONFIGURED",
+      "goPlusStatus": "ERROR",
+      "updatedAt": "2026-10-14T17:55:27.921Z",
+      "goPlusAppKeyEncrypted": "a9d4fd98c73a8cb3de97ee3d7569df96:ba24b026b3997894d38d97fb1916a2cb3b37bf3f3e14cbc0d8902af8a86980a6",
+      "goPlusAppKeyMasked": "gp_s...****1111",
+      "goPlusApiKeyEncrypted": "a9d4fd98c73a8cb3de97ee3d7569df96:ba24b026b3997894d38d97fb1916a2cb3b37bf3f3e14cbc0d8902af8a86980a6",
+      "goPlusMasked": "gp_s...****1111",
+      "goPlusLastError": "signature verification failure"
+    },
+    {
+      "ownerId": "mem_ac4fd3f060efd1ea",
+      "jupiterStatus": "ERROR",
+      "goPlusStatus": "ERROR",
+      "updatedAt": "2026-10-14T18:06:06.021Z",
+      "jupiterApiKeyEncrypted": "6b6d0e4a9cf532fa3f8b4b819242a307:7565e8ab3b9579def19c014e072b99231708b63c0343953d53ffe6884847eb30",
+      "jupiterMasked": "jup_...****5678",
+      "jupiterLastError": "Authentication failed (HTTP 401): Invalid Jupiter API key. Check key on station.jup.ag",
+      "goPlusAppKeyEncrypted": "234bf1907095954cc6b95e50f13fdfc6:90b1741ef048ad4526d619592f2fd68dfb7be93a29951bf971d758720afbb168",
+      "goPlusAppKeyMasked": "gp_a...****4321",
+      "goPlusApiKeyEncrypted": "234bf1907095954cc6b95e50f13fdfc6:90b1741ef048ad4526d619592f2fd68dfb7be93a29951bf971d758720afbb168",
+      "goPlusMasked": "gp_a...****4321",
+      "goPlusAppSecretEncrypted": "5cfc7ef2971c5ef7683377265aab6422:d059840ce6d6e21a5447a66a9785ec4139b412b1c753ddf2be95e7e58247f2c6",
+      "goPlusAppSecretMasked": "gp_a...****2345",
+      "goPlusLastError": "GoPlus auth error code 4010"
+    },
+    {
+      "ownerId": "user_a_1792001166150",
+      "jupiterStatus": "ERROR",
+      "goPlusStatus": "NOT_CONFIGURED",
+      "updatedAt": "2026-10-14T18:06:06.313Z",
+      "jupiterApiKeyEncrypted": "fffe8a1b6972394c65481346ccc99972:caf3bc6a5a88858b5578b000d7c5068ef211ea65ef5488de601a0f05e827b3ba",
+      "jupiterMasked": "jup_...****9999",
+      "jupiterLastError": "Authentication failed (HTTP 401): Invalid Jupiter API key. Check key on station.jup.ag"
+    },
+    {
+      "ownerId": "user_b_1792001166150",
+      "jupiterStatus": "NOT_CONFIGURED",
+      "goPlusStatus": "ERROR",
+      "updatedAt": "2026-10-14T18:06:06.599Z",
+      "goPlusAppKeyEncrypted": "c6fb4b93089fce4ac7ccaae71fc1f35a:4b71ed7d048ca4a10525433ed0fef8eb98e37168eac15da72d376bc494b3e257",
+      "goPlusAppKeyMasked": "gp_s...****1111",
+      "goPlusApiKeyEncrypted": "c6fb4b93089fce4ac7ccaae71fc1f35a:4b71ed7d048ca4a10525433ed0fef8eb98e37168eac15da72d376bc494b3e257",
+      "goPlusMasked": "gp_s...****1111",
+      "goPlusLastError": "signature verification failure"
+    }
+  ]
+}
