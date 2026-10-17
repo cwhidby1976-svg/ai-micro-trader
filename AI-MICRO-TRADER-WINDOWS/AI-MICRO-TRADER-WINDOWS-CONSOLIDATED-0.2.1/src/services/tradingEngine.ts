@@ -844,9 +844,10 @@ export class TradingEngine {
   ): ScannedToken[] {
     return raw.map((tok) => {
       // Calculate EMAs from 1m candles
-      const closes = tok.candles1m.map((c) => c.close);
-      const ema9 = closes[closes.length - 1] * 1.01;
-      const ema21 = closes[0] * 0.99;
+      const candles = tok.candles1m || [];
+      const closes = candles.map((c) => c.close);
+      const ema9 = closes.length > 0 ? closes[closes.length - 1] * 1.01 : 0;
+      const ema21 = closes.length > 0 ? closes[0] * 0.99 : 0;
 
       // 1. Token Security (GoPlus)
       const check1 =
@@ -859,25 +860,27 @@ export class TradingEngine {
       const check2 = tok.liquidity >= 25000 && tok.bondingCurvePercent >= 80;
 
       // 3. Trading Volume (Volume 24h >= $100k)
-      const check3 = tok.volume24h >= 100000 && tok.candles1m.length >= 5;
+      const check3 = tok.volume24h >= 100000 && candles.length >= 5;
 
       // 4. Trend Alignment (EMA9 > EMA21 on 1m candles)
       const check4 = ema9 > ema21;
 
       // 5. Indication (Candle closes above 5-candle high & volume >= 1.3x or Impulse phase)
-      const lastCandle = tok.candles1m[tok.candles1m.length - 1];
-      const prevCandles = tok.candles1m.slice(-6, -1);
+      const lastCandle = candles[candles.length - 1];
+      const prevCandles = candles.slice(-6, -1);
       const avgPrevVolume =
         prevCandles.length > 0
           ? prevCandles.reduce((acc, c) => acc + c.volume, 0) / prevCandles.length
           : 1;
       const highestPrevHigh =
-        prevCandles.length > 0 ? Math.max(...prevCandles.map((c) => c.high)) : lastCandle.close;
-      const check5 =
-        (lastCandle.close >= highestPrevHigh && lastCandle.volume >= avgPrevVolume * 1.3) ||
-        tok.targetPhase === 'IMPULSE' ||
-        tok.targetPhase === 'CONTINUATION' ||
-        tok.targetPhase === 'CONSOLIDATING';
+        prevCandles.length > 0 ? Math.max(...prevCandles.map((c) => c.high)) : lastCandle?.close ?? 0;
+      const check5 = Boolean(
+        lastCandle &&
+          ((lastCandle.close >= highestPrevHigh && lastCandle.volume >= avgPrevVolume * 1.3) ||
+            tok.targetPhase === 'IMPULSE' ||
+            tok.targetPhase === 'CONTINUATION' ||
+            tok.targetPhase === 'CONSOLIDATING')
+      );
 
       // 6. Correction / Consolidation (Pullback within range or consolidation compression)
       const check6 =
@@ -887,7 +890,7 @@ export class TradingEngine {
 
       // 7. Continuation (Close above correction high & volume confirmation)
       const check7 =
-        (check6 && tok.priceUsd >= lastCandle.open) ||
+        (check6 && lastCandle && tok.priceUsd >= lastCandle.open) ||
         tok.targetPhase === 'CONTINUATION';
 
       // 8. Execution & Risk Checks (Planned risk <= 0.5% equity & slippage <= 1.5%)
