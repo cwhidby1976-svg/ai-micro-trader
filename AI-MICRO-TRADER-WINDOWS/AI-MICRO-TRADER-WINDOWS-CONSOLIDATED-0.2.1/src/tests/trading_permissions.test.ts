@@ -148,7 +148,9 @@ async function runTradingPermissionsTests() {
   const positions = tradingEngine.getPositions();
   const createdPos = positions.find((p) => p.tokenSymbol === testToken.symbol);
   assert(createdPos, 'Position must exist');
-  assert.strictEqual(createdPos.stopLossPercent, -8.0, 'Initial stop-loss percent must match');
+  assert.strictEqual(createdPos.stopLossPercent, -3.5, 'All manual entries use a -3.5% hard stop');
+  assert.strictEqual(createdPos.trailingStopActive, true, 'Manual entries have 2pp trailing active');
+  assert.strictEqual(createdPos.trailingStopMarginPercent, 2.0, 'Manual trailing is 2 percentage points');
   assert.strictEqual(createdPos.profitTargetPercent, 35.0, 'Initial profit target must match');
 
   // Dynamically raise profit margins and move stop-loss to break-even (0%) and lock-in profit (+5%)
@@ -313,9 +315,9 @@ async function runTradingPermissionsTests() {
   );
   tradingEngine.setAutopilot(false);
   // -------------------------------------------------------------
-  // Test 15: 15-Minute Cycle Strategy: Hard Stop (-5%), Profit Lock-in (+4.5%), Max Cap (+25%)
+  // Test 15: Hard Stop (-3.5%), 2pp trailing, Autopilot BE lock at +2%, Max Cap (+25%)
   // -------------------------------------------------------------
-  console.log('\n▶ Test 15: 15-Minute Cycle Strategy: Hard Stop (-5%), Lock-In (+4.5%), Max Cap (+25%)');
+  console.log('\n▶ Test 15: Hard Stop (-3.5%), 2pp trailing, Autopilot BE lock at +2%, Max Cap (+25%)');
   tradingEngine.getPositions().forEach((p) => {
     p.state = 'CLOSED';
   });
@@ -332,23 +334,25 @@ async function runTradingPermissionsTests() {
   assert(test15OrderRes.success, 'Test order must execute successfully');
   const created = tradingEngine.getPositions().find((p) => p.tokenMint === testTok.mint && p.state !== 'CLOSED');
   assert(created, 'Created position must be active');
-  assert.strictEqual(created.stopLossPercent, -5.0, 'Default hard stop-loss must strictly be -5.0%');
+  assert.strictEqual(created.stopLossPercent, -3.5, 'Default hard stop-loss must strictly be -3.5%');
+  assert.strictEqual(created.trailingStopActive, true, '2pp trailing must be active on manual trades');
+  assert.strictEqual(created.trailingStopMarginPercent, 2.0, 'Trailing must be 2 percentage points');
   assert.strictEqual(
     created.stopLossPrice,
-    +(testTok.priceUsd * 0.95).toFixed(6),
-    'Hard stop price must be at -5% of entry price'
+    +(testTok.priceUsd * 0.965).toFixed(6),
+    'Hard stop price must be at -3.5% of entry price'
   );
   assert.strictEqual(
     created.takeProfitStandardPrice,
-    +(testTok.priceUsd * 1.045).toFixed(6),
-    'Profit lock-in goal price must be at +4.5% of entry price'
+    +(testTok.priceUsd * 1.0).toFixed(6),
+    'Manual entries do not auto-lock break-even; autopilot locks at +2%'
   );
   assert.strictEqual(
     created.takeProfitMaxPrice,
     +(testTok.priceUsd * 1.25).toFixed(6),
     'Max profit cap price must be at +25% of entry price'
   );
-  console.log('  ✔ Verified strictly -5.0% Hard Stop-Loss, +4.5% Profit Lock-In Goal, and +25% Max Profit Cap Ceiling');
+  console.log('  ✔ Verified -3.5% hard stop, 2pp trailing, and +25% max profit cap');
 
   console.log('\n═══════════════════════════════════════════════════════════');
   console.log('🎉 ALL 15 PHASE 14 & 15 ACCEPTANCE TESTS PASSED CLEANLY!');

@@ -123,7 +123,7 @@ export class ScannerDataProvider {
       else if (token.liquidity < 50000) liquidityTier = 'MICRO_CAP';
 
       const targetTakeProfit = +(token.priceUsd * (1 + (token.iccPhase === 'CONTINUATION' ? 0.5 : 0.75))).toFixed(6);
-      const stopLossPrice = +(token.priceUsd * 0.95).toFixed(6); // -5% strictly hard stop
+      const stopLossPrice = +(token.priceUsd * 0.965).toFixed(6); // -3.5% hard stop
       const checklistPassedCount = token.checklist.scoreOutOf8;
 
       return {

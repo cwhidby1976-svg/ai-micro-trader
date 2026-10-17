@@ -4,7 +4,6 @@ import {
   X,
   Check,
   Copy,
-  ExternalLink,
   RefreshCw,
   LogOut,
   ShieldCheck,
@@ -25,13 +24,40 @@ export interface MockWalletOption {
 
 export const MOCK_WALLETS: MockWalletOption[] = [
   {
-    id: 'paper-session',
-    name: 'Paper Trading Session',
+    id: 'paper-10',
+    name: 'Paper Desk 10',
+    iconBg: 'from-zinc-600 to-zinc-800',
+    badgeColor: 'text-zinc-300 border-zinc-500/40 bg-zinc-950/40',
+    address: 'Paper10Amt1111111111111111111111111111111111',
+    description: 'Simulated 10 SOL paper wallet. Practice size only — not a live wallet.',
+    initialSol: 10.0,
+  },
+  {
+    id: 'paper-25',
+    name: 'Paper Desk 25',
+    iconBg: 'from-cyan-600 to-teal-700',
+    badgeColor: 'text-cyan-300 border-cyan-500/40 bg-cyan-950/40',
+    address: 'Paper25Amt1111111111111111111111111111111111',
+    description: 'Simulated 25 SOL paper wallet. Practice size only — not a live wallet.',
+    initialSol: 25.0,
+  },
+  {
+    id: 'paper-50',
+    name: 'Paper Desk 50',
     iconBg: 'from-emerald-600 to-teal-700',
     badgeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40',
-    address: 'Paper111111111111111111111111111111111111111',
-    description: 'Simulated paper-trading identity. Not Phantom, SafePal, or any live wallet.',
+    address: 'Paper50Amt1111111111111111111111111111111111',
+    description: 'Simulated 50 SOL paper wallet. Default demo desk size.',
     initialSol: 50.0,
+  },
+  {
+    id: 'paper-100',
+    name: 'Paper Desk 100',
+    iconBg: 'from-purple-600 to-indigo-700',
+    badgeColor: 'text-purple-300 border-purple-500/40 bg-purple-950/40',
+    address: 'Paper100Amt111111111111111111111111111111111',
+    description: 'Simulated 100 SOL paper wallet. Larger practice size only.',
+    initialSol: 100.0,
   },
 ];
 
@@ -98,12 +124,10 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-white text-base leading-tight">
-                {connectedWallet && !isSwitching ? 'Solana Wallet Connected' : 'Connect Solana Wallet'}
+                {connectedWallet && !isSwitching ? 'Paper Wallet Selected' : 'Choose a Paper Wallet Amount'}
               </h3>
               <p className="text-[11px] text-zinc-400">
-                {connectedWallet && !isSwitching
-                  ? 'Paper-mode simulated session (not a live wallet)'
-                  : 'Paper demo only — live Phantom/SafePal connect is in licensed production mode'}
+                Demo only — simulated balances. Real Phantom or SafePal is not used here.
               </p>
             </div>
           </div>
@@ -187,20 +211,11 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
                       type="button"
                       onClick={() => handleCopy(connectedWallet)}
                       className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg transition text-xs flex items-center gap-1"
-                      title="Copy Public Key"
+                      title="Copy simulated paper address"
                     >
                       {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       <span className="text-[10px]">{copied ? 'Copied' : 'Copy'}</span>
                     </button>
-                    <a
-                      href={`https://solscan.io/account/${connectedWallet}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-lg transition text-xs"
-                      title="View on Solscan (External)"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
                   </div>
                 </div>
               </div>
@@ -209,7 +224,7 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
               <div className="p-3 bg-zinc-950/70 border border-zinc-800/80 rounded-xl flex items-start gap-2.5 text-xs text-zinc-400">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="leading-relaxed text-[11px]">
-                  <strong className="text-zinc-300">Non-Custodial Architecture:</strong> Client signs swaps locally via DEX routing. Private keys never touch any server or cloud environment.
+                  <strong className="text-zinc-300">Paper demo only:</strong> This balance is simulated. It does not connect to Phantom, SafePal, or any live wallet. Use it to try different practice amounts.
                 </div>
               </div>
 
@@ -224,7 +239,7 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
                   className="flex-1 py-2.5 px-3 bg-zinc-800 hover:bg-rose-950/60 text-zinc-300 hover:text-rose-300 hover:border-rose-800 border border-zinc-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>Disconnect Wallet</span>
+                  <span>End Paper Session</span>
                 </button>
                 <button
                   type="button"
@@ -240,7 +255,7 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
             <div className="space-y-3">
               {isSwitching && (
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-800 text-xs">
-                  <span className="text-zinc-400">Select a new wallet connector:</span>
+                  <span className="text-zinc-400">Select a paper wallet amount:</span>
                   <button
                     type="button"
                     onClick={() => setIsSwitching(false)}
@@ -312,7 +327,7 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
 
               {/* Informational Footer */}
               <div className="p-3 bg-zinc-950/60 rounded-xl border border-zinc-800/80 text-[11px] text-zinc-400 leading-relaxed">
-                <span className="text-zinc-300 font-semibold">Simulated Solana Wallet:</span> Connects with zero setup. You can test manual trades, monitor live SOL balance changes, and experience the 15-minute ICC cycles safely.
+                <span className="text-zinc-300 font-semibold">Paper wallets:</span> Pick an amount to load a simulated desk. This does not connect a real wallet. Open paper trades are cleared when you switch amounts.
               </div>
             </div>
           )}

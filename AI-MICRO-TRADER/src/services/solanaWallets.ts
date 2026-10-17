@@ -33,6 +33,21 @@ declare global {
 
 const standardWallets = new Map<string, StandardWallet>();
 let standardStarted = false;
+let registerWalletListener: EventListener | null = null;
+let hostOverride: 'electron' | 'android' | 'browser' | null = null;
+
+class AppReadyEvent extends Event {
+  readonly #detail: { register: (wallet: StandardWallet) => void };
+
+  constructor(api: { register: (wallet: StandardWallet) => void }) {
+    super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
+    this.#detail = api;
+  }
+
+  get detail() {
+    return this.#detail;
+  }
+}
 
 function walletNameMatches(name: string, id: SupportedWalletId): boolean {
   const n = name.toLowerCase();
@@ -45,40 +60,64 @@ function registerStandardWallet(wallet: StandardWallet): void {
   standardWallets.set(wallet.name, wallet);
 }
 
+export function setWalletHostOverrideForTests(host: 'electron' | 'android' | 'browser' | null): void {
+  hostOverride = host;
+}
+
 export function detectWalletHost(): 'electron' | 'android' | 'browser' {
+  if (hostOverride) return hostOverride;
   if (typeof navigator === 'undefined') return 'browser';
   const ua = navigator.userAgent;
-  if (import.meta.env.VITE_APP_DISTRIBUTION === 'desktop' || /Electron/i.test(ua)) return 'electron';
-  if (import.meta.env.VITE_APP_DISTRIBUTION === 'android' || /Android/i.test(ua)) return 'android';
+  const distribution = import.meta.env?.VITE_APP_DISTRIBUTION;
+  if (distribution === 'desktop' || /Electron/i.test(ua)) return 'electron';
+  if (distribution === 'android' || /Android/i.test(ua)) return 'android';
   return 'browser';
+}
+
+export function isLiveNativeApp(): boolean {
+  const host = detectWalletHost();
+  return host === 'electron' || host === 'android';
+}
+
+export function resetWalletStandardDiscoveryForTests(): void {
+  standardWallets.clear();
+  standardStarted = false;
+  hostOverride = null;
+  if (typeof window !== 'undefined' && registerWalletListener) {
+    window.removeEventListener('wallet-standard:register-wallet', registerWalletListener);
+  }
+  registerWalletListener = null;
 }
 
 export function startWalletStandardDiscovery(): void {
   if (typeof window === 'undefined' || standardStarted) return;
   standardStarted = true;
 
-  const onRegister = (wallet: StandardWallet) => registerStandardWallet(wallet);
-
-  window.addEventListener('wallet-standard:register-wallet', ((event: Event) => {
-    const detail = (event as CustomEvent).detail as { register?: (cb: (wallet: StandardWallet) => void) => void };
+  const api = { register: registerStandardWallet };
+  registerWalletListener = ((event: Event) => {
+    const detail = (event as CustomEvent).detail as
+      | ((payload: { register: (wallet: StandardWallet) => void }) => void)
+      | undefined;
     try {
-      detail?.register?.(onRegister);
+      if (typeof detail === 'function') detail(api);
     } catch {
       /* ignore wallets that fail to register */
     }
-  }) as EventListener);
+  }) as EventListener;
+
+  window.addEventListener('wallet-standard:register-wallet', registerWalletListener);
 
   try {
-    window.dispatchEvent(new Event('wallet-standard:app-ready'));
+    window.dispatchEvent(new AppReadyEvent(api));
   } catch {
-    /* ignore */
+    /* ignore wallets that throw on a well-formed app-ready event */
   }
 
   const nav = navigator as Navigator & { wallets?: Array<{ register?: (cb: (wallet: StandardWallet) => void) => void }> };
   if (Array.isArray(nav.wallets)) {
-    for (const api of nav.wallets) {
+    for (const navApi of nav.wallets) {
       try {
-        api.register?.(onRegister);
+        navApi.register?.(registerStandardWallet);
       } catch {
         /* ignore */
       }
@@ -111,11 +150,8 @@ function findInjectedProvider(id: SupportedWalletId): InjectedSolanaProvider | n
 function hostLimitation(id: SupportedWalletId): string | null {
   const host = detectWalletHost();
   const label = id === 'phantom' ? 'Phantom' : 'SafePal';
-  if (host === 'electron') {
-    return `${label} cannot inject into this Windows desktop window. Open AI Micro Trader in Chrome or Edge with the ${label} extension, or use ${label}'s in-app browser.`;
-  }
-  if (host === 'android') {
-    return `${label} mobile deep-link pairing is not implemented in this build. Open this site inside the ${label} in-app browser to connect.`;
+  if (host === 'browser') {
+    return `${label} live connect is available only in the Windows and Android apps. This website dashboard is paper demo only.`;
   }
   return null;
 }
@@ -134,19 +170,18 @@ async function connectStandard(wallet: StandardWallet, silent: boolean): Promise
 export async function connectSupportedWallet(
   id: SupportedWalletId,
   options?: { silent?: boolean }
-): Promise<{ address: string; name: 'Phantom' | 'SafePal'; method: 'wallet-standard' | 'injected' }> {
+): Promise<{ address: string; name: 'Phantom' | 'SafePal'; method: 'wallet-standard' | 'injected' | 'deeplink' }> {
   startWalletStandardDiscovery();
   const name = id === 'phantom' ? 'Phantom' : 'SafePal';
-  const limitation = hostLimitation(id);
-  const standard = findStandardWallet(id);
-  const injected = findInjectedProvider(id);
-
-  if (!standard && !injected) {
+  if (!isLiveNativeApp()) {
     throw new Error(
-      limitation ||
-        `${name} was not detected. Install the ${name} browser extension or open this site in the ${name} in-app browser. No simulated wallet will be connected.`
+      hostLimitation(id) ||
+        `${name} live connect is available only in the Windows and Android apps. This website dashboard is paper demo only.`
     );
   }
+
+  const standard = findStandardWallet(id);
+  const injected = findInjectedProvider(id);
 
   if (standard) {
     try {
@@ -179,6 +214,12 @@ export async function connectSupportedWallet(
 
   if (options?.silent) {
     throw new Error('silent-reconnect-failed');
+  }
+
+  const { connectNativeWallet } = await import('./nativeWalletLink');
+  const address = await connectNativeWallet(id);
+  if (address && address.length >= 32) {
+    return { address, name, method: 'deeplink' };
   }
   throw new Error(`${name} connection failed.`);
 }

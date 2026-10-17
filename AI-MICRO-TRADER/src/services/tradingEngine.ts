@@ -532,7 +532,7 @@ export class TradingEngine {
     const defaults: RiskManagementConfig = {
       dailyStopLossPercent: 5.0,
       maxSlippageTolerancePercent: 1.0,
-      positionStopLossPercent: 5.0, // Strictly -5% Hard Stop-Loss
+      positionStopLossPercent: 3.5, // Strictly -3.5% Hard Stop-Loss
       maxRiskPerTradePercent: 0.5,
       autoCloseOnDailyStopLoss: true,
     };
@@ -1009,38 +1009,35 @@ export class TradingEngine {
       let newState: PositionState = pos.state;
       let exitReason = pos.exitReason;
 
-      // Autopilot-only strategy: -3.5% initial stop, +2.5% activation,
-      // and a 2-PERCENTAGE-POINT trail measured relative to ENTRY.
-      // Manual positions retain the existing configurable trailing logic.
+      // Manual: -3.5% hard stop with 2 percentage-point trailing from peak.
+      // Autopilot only: at +2% peak, lock break-even and keep 2pp trailing.
       const autoPosition = pos.isAutopilotPosition === true;
       const peakReturnPercent = ((highestPriceSeen - pos.entryPrice) / pos.entryPrice) * 100;
-      const activationPercent = autoPosition ? 2.5 : 4.5;
+      const trailPp = pos.trailingStopMarginPercent > 0 ? pos.trailingStopMarginPercent : 2;
       let profitProtected = pos.profitProtectionActive;
-      if (peakReturnPercent >= activationPercent && !profitProtected) {
+      if (autoPosition && peakReturnPercent >= 2.0 && !profitProtected) {
         profitProtected = true;
         newState = 'PROFIT_PROTECTION_ACTIVE';
-        this.logActivity('RISK',
-          `[PROFIT LOCK-IN] ${pos.tokenSymbol}: peak +${peakReturnPercent.toFixed(2)}%; threshold +${activationPercent}%`);
+        this.logActivity(
+          'RISK',
+          `[PROFIT LOCK-IN] [AUTOPILOT] ${pos.tokenSymbol}: +${peakReturnPercent.toFixed(2)}% reached. Break-even locked with ${trailPp}pp trailing protection active.`
+        );
       }
 
       let effectiveStopLossPrice = pos.stopLossPrice;
       if (autoPosition) {
-        // The stop never decreases. At +2.5% peak, this yields +0.5%.
-        // Using peak return minus 2 points (NOT 2% of current market price).
-        const stopReturn = profitProtected ? Math.max(-3.5, peakReturnPercent - 2) : -3.5;
-        effectiveStopLossPrice = Math.max(effectiveStopLossPrice,
-          pos.entryPrice * (1 + stopReturn / 100));
+        const stopReturn = profitProtected ? Math.max(0, peakReturnPercent - trailPp) : -3.5;
+        effectiveStopLossPrice = Math.max(
+          effectiveStopLossPrice,
+          pos.entryPrice * (1 + stopReturn / 100)
+        );
       } else {
-        // Preserve pre-existing MANUAL position profit-protection rules.
-        if (profitProtected) {
-          effectiveStopLossPrice = Math.max(effectiveStopLossPrice, pos.entryPrice * 1.02);
-        }
-        if ((pos.trailingStopActive || profitProtected) &&
-            (pos.trailingStopMarginPercent > 0 || profitProtected)) {
-          const margin = pos.trailingStopMarginPercent > 0 ? pos.trailingStopMarginPercent : 3.0;
-          effectiveStopLossPrice = Math.max(effectiveStopLossPrice,
-            highestPriceSeen * (1 - margin / 100));
-        }
+        const trailActive = pos.trailingStopActive !== false;
+        const stopReturn = trailActive ? Math.max(-3.5, peakReturnPercent - trailPp) : -3.5;
+        effectiveStopLossPrice = Math.max(
+          effectiveStopLossPrice,
+          pos.entryPrice * (1 + stopReturn / 100)
+        );
       }
 
       // 1. Dynamic Stop-Loss / Profit Lock-in Floor Trigger
@@ -1383,10 +1380,10 @@ export class TradingEngine {
     }
 
     const tokenQty = tradeUsd / tok.priceUsd;
-    const slPercent = params.isAuto ? -3.5 : (params.stopLossPercent !== undefined ? params.stopLossPercent : -5.0);
-    const ptPercent = params.isAuto ? 25.0 : (params.profitTargetPercent !== undefined ? params.profitTargetPercent : 25.0);
-    const trailingActive = params.isAuto ? true : (params.trailingStopActive ?? true);
-    const trailingMargin = params.isAuto ? 2.0 : (params.trailingStopMarginPercent || 4.0);
+    const slPercent = -3.5;
+    const ptPercent = params.profitTargetPercent !== undefined ? params.profitTargetPercent : 25.0;
+    const trailingActive = true;
+    const trailingMargin = 2.0;
 
     const order: TradeOrder = {
       id: createUniqueEngineId(`ord_${tok.symbol}`),
@@ -1418,7 +1415,7 @@ export class TradingEngine {
       stopLossPercent: slPercent,
       stopLossPrice: +(tok.priceUsd * (1 + slPercent / 100)).toFixed(6),
       profitTargetPercent: ptPercent,
-      takeProfitStandardPrice: +(tok.priceUsd * (params.isAuto ? 1.025 : 1.045)).toFixed(6),
+      takeProfitStandardPrice: +(tok.priceUsd * (params.isAuto ? 1.02 : 1.0)).toFixed(6),
       takeProfitMaxPrice: +(tok.priceUsd * (1 + ptPercent / 100)).toFixed(6), // +25% max profit cap
       profitProtectionActive: false,
       trailingStopActive: trailingActive,
@@ -1433,7 +1430,7 @@ export class TradingEngine {
     this.orderHistory.unshift(order);
     this.logActivity(
       'ORDER',
-      `${params.isAuto ? '[AUTOPILOT]' : '[MANUAL]'} Entered position ${tok.symbol} (${params.amountSol} SOL @ $${tok.priceUsd.toFixed(6)}) via Jupiter | SL: ${slPercent}% | TP: +${ptPercent}%`
+      `${params.isAuto ? '[AUTOPILOT]' : '[MANUAL]'} Entered position ${tok.symbol} (${params.amountSol} SOL @ $${tok.priceUsd.toFixed(6)}) via Jupiter | SL: ${slPercent}% | ${params.isAuto ? 'BE lock at +2% with 2pp trail' : '2pp trailing active'} | TP: +${ptPercent}%`
     );
     this.notify();
 
@@ -1665,6 +1662,18 @@ export class TradingEngine {
     // Demo-only faucet: credit the same ledger used for equity and risk allocation.
     this.paperTotalEquityUsd += amountSol * this.solPriceUsd;
     this.logActivity('ORDER', `Demo faucet credited ${amountSol.toFixed(4)} SOL (simulated).`);
+    this.notify();
+  }
+
+  public applyPaperDemoWallet(amountSol: number): void {
+    if (!Number.isFinite(amountSol) || amountSol <= 0) return;
+    this.positions = [];
+    this.orderHistory = [];
+    this.paperTotalEquityUsd = +(amountSol * this.solPriceUsd).toFixed(2);
+    this.logActivity(
+      'ORDER',
+      `Paper demo wallet loaded at ${amountSol.toFixed(4)} SOL (simulated). Open paper trades were cleared.`
+    );
     this.notify();
   }
 

@@ -29,6 +29,12 @@
                   "extraMetadata":  {
                                         "main":  "main.cjs"
                                     },
+                  "protocols": [
+                    {
+                      "name": "AI Micro Trader Wallet",
+                      "schemes": ["aimicrotrader"]
+                    }
+                  ],
                   "win":  {
                               "icon":  "assets/windows-icon.ico"
                           },

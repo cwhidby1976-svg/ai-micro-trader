@@ -155,7 +155,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Legacy localStorage mock balances must not override this source of truth.
   const walletSolBalance = balance.sol;
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showLiveWalletPreview, setShowLiveWalletPreview] = useState(false);
 
   // LIVE MODE ONLY: separate read-only wallet session. Never restore a mock session as live.
   const [liveWalletAddress, setLiveWalletAddress] = useState<string | null>(null);
@@ -263,17 +262,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isExecutingManualTrade, setIsExecutingManualTrade] = useState(false);
 
   // Manual Trade Initial Margins
-  const [initialStopLossPercent, setInitialStopLossPercent] = useState<number>(-5);
+  const [initialStopLossPercent, setInitialStopLossPercent] = useState<number>(-3.5);
   const [initialProfitTargetPercent, setInitialProfitTargetPercent] = useState<number>(25);
   const [initialTrailingStopActive, setInitialTrailingStopActive] = useState<boolean>(true);
-  const [initialTrailingStopMargin, setInitialTrailingStopMargin] = useState<number>(4);
+  const [initialTrailingStopMargin, setInitialTrailingStopMargin] = useState<number>(2);
 
   // Margin Adjustment Modal State (Raise Profit / Stop-Loss)
   const [adjustingPosition, setAdjustingPosition] = useState<Position | null>(null);
-  const [adjustStopLossPercent, setAdjustStopLossPercent] = useState<number>(-5);
+  const [adjustStopLossPercent, setAdjustStopLossPercent] = useState<number>(-3.5);
   const [adjustProfitTargetPercent, setAdjustProfitTargetPercent] = useState<number>(25);
   const [adjustTrailingStopActive, setAdjustTrailingStopActive] = useState<boolean>(true);
-  const [adjustTrailingStopMargin, setAdjustTrailingStopMargin] = useState<number>(4);
+  const [adjustTrailingStopMargin, setAdjustTrailingStopMargin] = useState<number>(2);
   const [adjustMarginSaving, setAdjustMarginSaving] = useState<boolean>(false);
   const [adjustMarginFeedback, setAdjustMarginFeedback] = useState<string | null>(null);
 
@@ -491,9 +490,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setWalletName(name);
     localStorage.setItem('ai_micro_trader_connected_wallet', address);
     localStorage.setItem('ai_micro_trader_wallet_name', name);
-    // Wallet connection is cosmetic in the demo; do not replace trading equity
-    // with a separately supplied mock wallet balance.
-
+    if (usePaperWallets && typeof initialSol === 'number' && initialSol > 0) {
+      tradingEngine.applyPaperDemoWallet(initialSol);
+      setBalance(tradingEngine.getPaperBalance());
+      setPortfolioMetrics(tradingEngine.getPortfolioMetrics());
+      setPositions(tradingEngine.getPositions());
+      setOrders(tradingEngine.getOrderHistory());
+    }
   };
 
   const handleDisconnectWallet = () => {
@@ -607,10 +610,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       slippage: 1.0,
       priorityFeeTier: 'Turbo',
       isAuto: false,
-      stopLossPercent: -5,
+      stopLossPercent: -3.5,
       profitTargetPercent: 25,
       trailingStopActive: true,
-      trailingStopMarginPercent: 4,
+      trailingStopMarginPercent: 2,
     });
     setActiveTab('positions');
   };
@@ -626,7 +629,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setAdjustStopLossPercent(pos.stopLossPercent);
     setAdjustProfitTargetPercent(pos.profitTargetPercent);
     setAdjustTrailingStopActive(pos.trailingStopActive ?? false);
-    setAdjustTrailingStopMargin(pos.trailingStopMarginPercent || 5);
+    setAdjustTrailingStopMargin(pos.trailingStopMarginPercent || 2);
     setAdjustMarginFeedback(null);
   };
 
@@ -1230,10 +1233,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <span className={`px-2.5 py-1 rounded-full border font-bold ${usePaperWallets ? 'bg-cyan-950/40 border-cyan-600/40 text-cyan-200' : 'bg-emerald-950/40 border-emerald-600/40 text-emerald-200'}`}>
               LICENSED {usePaperWallets ? 'PAPER MODE' : 'LIVE MODE'}
             </span>
-          <div className="flex items-center rounded-full border border-zinc-700 bg-zinc-950 p-0.5 text-xs" title={usePaperWallets ? 'Paper simulation on this dashboard' : 'Live Windows/Android wallet session'}>
-            <span className={`rounded-full px-3 py-1 font-semibold ${usePaperWallets ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Paper</span>
-            <span className={`rounded-full px-3 py-1 font-semibold ${!usePaperWallets ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Live</span>
-          </div>
+          {usePaperWallets ? (
+            <div
+              className="flex items-center rounded-full border border-zinc-700 bg-zinc-950 p-0.5 text-xs"
+              title="Demo uses simulated paper wallets and balances only"
+            >
+              <span className="rounded-full px-3 py-1 font-semibold bg-zinc-800 text-white">Paper</span>
+            </div>
+          ) : (
+            <div
+              className="flex items-center rounded-full border border-zinc-700 bg-zinc-950 p-0.5 text-xs"
+              title="Live Windows/Android wallet session"
+            >
+              <span className="rounded-full px-3 py-1 font-semibold text-zinc-500">Paper</span>
+              <span className="rounded-full px-3 py-1 font-semibold bg-zinc-800 text-white">Live</span>
+            </div>
+          )}
 
           <button
             onClick={handleToggleAutopilot}
@@ -1269,17 +1284,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-bold"
             >
               <Wallet className="w-3.5 h-3.5" />
-              {usePaperWallets ? 'Paper Session' : 'Connect Wallet'}
-            </button>
-          )}
-
-          {usePaperWallets && (
-            <button
-              type="button"
-              onClick={() => setShowLiveWalletPreview(true)}
-              className="px-3 py-1 rounded-full border border-cyan-600/50 text-cyan-300 text-xs font-semibold hover:bg-cyan-950/40"
-            >
-              Test Live Wallet
+              {usePaperWallets ? 'Paper Wallets' : 'Connect Wallet'}
             </button>
           )}
 
@@ -1435,36 +1440,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        <div className="mb-4 rounded-2xl border border-emerald-800/40 bg-gradient-to-r from-emerald-950/30 via-zinc-950 to-zinc-950 p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-4 rounded-2xl border border-emerald-800/40 bg-gradient-to-r from-emerald-950/35 via-[#080b12] to-zinc-950 p-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-start gap-3 max-w-xl">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-white text-sm">Portfolio 50/50 Fund Allocation</h3>
-                <span className="text-[10px] font-semibold text-emerald-400">Enforced by Engine</span>
+                <span className="text-[10px] font-semibold text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+                  Enforced by Engine
+                </span>
               </div>
               <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
                 The reserve portion (50%) is strictly protected and never available for opening new trades. Available funds reflect uncommitted capital.
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-stretch gap-4 text-right">
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Trading 50% <span className="text-zinc-600">Max Budget</span></div>
-              <div className="text-lg font-bold text-white">${allocation.targetTradingUsd.toLocaleString()}</div>
-              <div className="text-[11px] text-zinc-400">◎ {(allocation.targetTradingUsd / Math.max(allocation.solPriceUsd, 1)).toFixed(2)} SOL</div>
+          <div className="flex flex-wrap items-stretch gap-3 text-right">
+            <div className="min-w-[148px] rounded-xl border border-zinc-800/90 bg-zinc-950/80 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+                Trading 50% <span className="text-zinc-600">Max Budget</span>
+              </div>
+              <div className="text-lg font-bold text-white tabular-nums">
+                ${allocation.targetTradingUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-[11px] text-zinc-400">
+                ◎ {(allocation.targetTradingUsd / Math.max(allocation.solPriceUsd, 1)).toFixed(2)} SOL
+              </div>
             </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Reserve 50% <span className="text-zinc-600">Untouchable</span></div>
-              <div className="text-lg font-bold text-emerald-300">${allocation.targetReserveUsd.toLocaleString()}</div>
-              <div className="text-[11px] text-zinc-400">◎ {(allocation.targetReserveUsd / Math.max(allocation.solPriceUsd, 1)).toFixed(2)} SOL (Locked)</div>
+            <div className="min-w-[148px] rounded-xl border border-emerald-800/50 bg-emerald-950/20 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+                Reserve 50% <span className="text-zinc-600">Untouchable</span>
+              </div>
+              <div className="text-lg font-bold text-emerald-300 tabular-nums">
+                ${allocation.targetReserveUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-[11px] text-zinc-400">
+                ◎ {(allocation.targetReserveUsd / Math.max(allocation.solPriceUsd, 1)).toFixed(2)} SOL (Locked)
+              </div>
             </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Available Trading Funds <span className="text-zinc-600">Uncommitted</span></div>
-              <div className="text-lg font-bold text-cyan-300">${allocation.uncommittedTradingUsd.toLocaleString()}</div>
-              <div className="text-[11px] text-zinc-500">${allocation.committedInPositionsUsd.toLocaleString()} in {openPositionCount} open trade(s)</div>
+            <div className="min-w-[168px] rounded-xl border border-cyan-800/50 bg-cyan-950/20 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+                Available Trading Funds <span className="text-zinc-600">Uncommitted</span>
+              </div>
+              <div className="text-lg font-bold text-cyan-300 tabular-nums">
+                ${allocation.uncommittedTradingUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-[11px] text-zinc-500">
+                ${allocation.committedInPositionsUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} in {openPositionCount} open trade(s)
+              </div>
             </div>
           </div>
         </div>
@@ -1727,7 +1752,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <div className="p-2 rounded-lg bg-zinc-950/50 border border-zinc-800/50">
                             <span className="text-zinc-500 block text-[9px] uppercase">Hard Stop-Loss</span>
                             <span className="text-rose-400 font-bold">
-                              ${opp.stopLossPrice.toFixed(tok.priceUsd < 0.001 ? 6 : 4)} (-5%)
+                              ${opp.stopLossPrice.toFixed(tok.priceUsd < 0.001 ? 6 : 4)} (-3.5%)
                             </span>
                           </div>
                         </div>
@@ -2118,7 +2143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div>
                     <label className="text-zinc-400 block mb-1">Target Take-Profit Steps</label>
                     <div className="grid grid-cols-3 gap-2 text-center font-mono font-bold text-[11px]">
-                      <div className="p-2 bg-zinc-950 border border-zinc-800 rounded-lg text-cyan-400">Lock: +4.5%</div>
+                      <div className="p-2 bg-zinc-950 border border-zinc-800 rounded-lg text-cyan-400">BE lock: +2% AP</div>
                       <div className="p-2 bg-zinc-950 border border-zinc-800 rounded-lg text-emerald-400">Run: +15%</div>
                       <div className="p-2 bg-zinc-950 border border-zinc-800 rounded-lg text-emerald-300">Max: +25%</div>
                     </div>
@@ -2129,7 +2154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <input
                       type="text"
                       readOnly
-                      value="-5.0% (Strict Hard Stop-Loss)"
+                      value="-3.5% hard stop · 2pp trailing (all manual trades)"
                       className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg font-mono text-rose-400"
                     />
                   </div>
@@ -2139,7 +2164,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <input
                       type="text"
                       readOnly
-                      value="Locks floor at +4.5%, Max Cap Exit at +25%"
+                      value="Autopilot: at +2% lock break-even + 2pp trail. Max cap +25%."
                       className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg font-mono text-cyan-400"
                     />
                   </div>
@@ -3236,8 +3261,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <Wallet className="w-4 h-4 text-purple-400" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-white text-sm">Non-Custodial Solana Wallet</h4>
-                    <p className="text-[11px] text-zinc-400">{usePaperWallets ? 'Paper demo session (not a live wallet)' : 'Phantom or SafePal in the Windows or Android live app'}</p>
+                    <h4 className="font-bold text-white text-sm">
+                      {usePaperWallets ? 'Paper Demo Wallets' : 'Non-Custodial Solana Wallet'}
+                    </h4>
+                    <p className="text-[11px] text-zinc-400">
+                      {usePaperWallets
+                        ? 'Simulated balances only — pick a paper wallet amount to practice. Real Phantom or SafePal is not used here.'
+                        : 'Phantom or SafePal in the Windows or Android live app'}
+                    </p>
                   </div>
                 </div>
 
@@ -3303,7 +3334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/20 flex items-center gap-1.5"
                   >
                     <Wallet className="w-3.5 h-3.5" />
-                    <span>{usePaperWallets ? 'Start Paper Session' : 'Connect Phantom / SafePal'}</span>
+                    <span>{usePaperWallets ? 'Choose Paper Amount' : 'Connect Phantom / SafePal'}</span>
                   </button>
                 )}
 
@@ -4526,17 +4557,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onDisconnect={handleDisconnectWallet}
         onAirdropSol={handleAirdropSol}
       />}
-      <LiveWalletModal
-        isOpen={showLiveWalletPreview || (!usePaperWallets && showWalletModal)}
-        onClose={() => { setShowLiveWalletPreview(false); if (!usePaperWallets) setShowWalletModal(false); }}
-        connectedWallet={liveWalletAddress}
-        walletName={liveWalletName}
-        solBalance={liveWalletSolBalance}
-        solPriceUsd={balance.solPrice > 0 ? balance.solPrice : null}
-        onConnect={handleLiveWalletConnect}
-        onDisconnect={handleLiveWalletDisconnect}
-        balanceError={liveWalletBalanceError}
-      />
+      {!usePaperWallets && (
+        <LiveWalletModal
+          isOpen={showWalletModal}
+          onClose={() => setShowWalletModal(false)}
+          connectedWallet={liveWalletAddress}
+          walletName={liveWalletName}
+          solBalance={liveWalletSolBalance}
+          solPriceUsd={balance.solPrice > 0 ? balance.solPrice : null}
+          onConnect={handleLiveWalletConnect}
+          onDisconnect={handleLiveWalletDisconnect}
+          balanceError={liveWalletBalanceError}
+        />
+      )}
     </div>
   );
 };

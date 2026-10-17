@@ -76,13 +76,13 @@ export const RiskManagementPanel: React.FC<RiskManagementPanelProps> = ({
   const handleResetDefaults = () => {
     setDailyStopLoss(5.0);
     setMaxSlippage(1.0);
-    setPositionStopLoss(5.0);
+    setPositionStopLoss(3.5);
     setMaxRiskPerTrade(0.5);
     setAutoCloseOnBreaker(true);
     onUpdateConfig({
       dailyStopLossPercent: 5.0,
       maxSlippageTolerancePercent: 1.0,
-      positionStopLossPercent: 5.0,
+      positionStopLossPercent: 3.5,
       maxRiskPerTradePercent: 0.5,
       autoCloseOnDailyStopLoss: true,
     });

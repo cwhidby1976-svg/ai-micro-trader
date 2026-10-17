@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { ActivationScreen } from './components/ActivationScreen';
 import { MemberPortal } from './components/MemberPortal';
+import { RiskDisclaimer, isPublicDisclaimerPath } from './components/RiskDisclaimer';
 
 export default function App() {
   const [licenseState, setLicenseState] = useState<ClientLicenseState>(licensingService.getState());
@@ -13,7 +14,9 @@ export default function App() {
   // Set VITE_APP_DISTRIBUTION=desktop or android for live-only builds.
   const liveOnlyBuild = import.meta.env.VITE_APP_DISTRIBUTION === 'desktop' || import.meta.env.VITE_APP_DISTRIBUTION === 'android';
   const [dashboardEnvironment, setDashboardEnvironment] = useState<'demo' | 'production'>('demo');
-  const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'activation'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'activation' | 'disclaimer'>(() =>
+    typeof window !== 'undefined' && isPublicDisclaimerPath() ? 'disclaimer' : 'landing'
+  );
 
   useEffect(() => {
     const unsubscribe = licensingService.subscribe((state) => {
@@ -24,6 +27,10 @@ export default function App() {
 
   // Live-only packages proceed to the production dashboard after key activation.
   useEffect(() => {
+    if (isPublicDisclaimerPath()) {
+      setCurrentView('disclaimer');
+      return;
+    }
     if (liveOnlyBuild && licenseState.status === 'ACTIVE') {
       setDashboardEnvironment('production');
       setCurrentView('dashboard');
@@ -37,6 +44,20 @@ export default function App() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const checkAdminRoute = () => {
+        if (isPublicDisclaimerPath()) {
+          setCurrentView('disclaimer');
+          return;
+        }
+        const path = window.location.pathname.replace(/\/+$/, '') || '/';
+        if (path === '/') {
+          setCurrentView((prev) => {
+            if (prev !== 'disclaimer') return prev;
+            if (liveOnlyBuild) {
+              return licenseState.status === 'ACTIVE' ? 'dashboard' : 'activation';
+            }
+            return 'landing';
+          });
+        }
         const params = new URLSearchParams(window.location.search);
         if (
           params.get('admin') === 'true' ||
@@ -53,6 +74,7 @@ export default function App() {
 
       checkAdminRoute();
       window.addEventListener('hashchange', checkAdminRoute);
+      window.addEventListener('popstate', checkAdminRoute);
 
       const handleKeyDown = (e: KeyboardEvent) => {
         // Discrete keyboard shortcut for site administrators: Alt+A or Ctrl+Shift+A
@@ -64,15 +86,17 @@ export default function App() {
 
       return () => {
         window.removeEventListener('hashchange', checkAdminRoute);
+        window.removeEventListener('popstate', checkAdminRoute);
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, []);
+  }, [liveOnlyBuild, licenseState.status]);
 
   return (
     <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col font-sans">
-      {/* View routing: Landing Page, Dashboard, or Activation Screen */}
-      {currentView === 'landing' && !liveOnlyBuild ? (
+      {currentView === 'disclaimer' ? (
+        <RiskDisclaimer />
+      ) : currentView === 'landing' && !liveOnlyBuild ? (
         <LandingPage
           licenseState={licenseState}
           onOpenAdmin={() => setShowAdminPortal(true)}

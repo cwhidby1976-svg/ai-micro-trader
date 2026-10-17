@@ -222,7 +222,11 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, onActivateK
 
   const handleConnectWallet = async () => {
     try {
-      const { connectSupportedWallet } = await import('../services/solanaWallets');
+      const { connectSupportedWallet, isLiveNativeApp } = await import('../services/solanaWallets');
+      if (!isLiveNativeApp()) {
+        alert('Pay from Phantom or SafePal, then paste the transaction signature. Live wallet connect runs in the Windows and Android apps only. This website does not attach a simulated wallet.');
+        return;
+      }
       const result = await connectSupportedWallet('phantom');
       setConnectedWallet(result.address);
     } catch (err: any) {

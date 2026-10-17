@@ -98,13 +98,13 @@ export const LiveWalletModal: React.FC<Props> = ({
             {error && <p role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-300">{error}</p>}
             <p className="flex gap-2 text-xs text-zinc-400"><ShieldCheck className="h-4 w-4 shrink-0" />No private keys or seed phrases requested. Wallet approval is required. This connection does not authorize trading.</p>
             {host === 'electron' && (
-              <p className="text-xs text-amber-300">Windows desktop cannot use browser-injected wallets. Connect in Chrome/Edge with Phantom or SafePal, or open this site in the wallet browser.</p>
+              <p className="text-xs text-amber-300">Windows live app: Connect opens Phantom or SafePal on this device. Approve the request, then this window returns to your public address. No seed phrase is requested.</p>
             )}
             {host === 'android' && (
-              <p className="text-xs text-amber-300">Mobile QR pairing is not implemented. Open this page in the Phantom or SafePal in-app browser.</p>
+              <p className="text-xs text-amber-300">Android live app: Connect uses the wallet in-app provider when you opened this app inside Phantom or SafePal, otherwise it opens that wallet for approval.</p>
             )}
             {host === 'browser' && (
-              <p className="text-xs text-zinc-500">Uses Wallet Standard when available, then the Phantom or SafePal injected provider. Simulated connections are disabled.</p>
+              <p className="text-xs text-zinc-500">This website is paper demo only. Real Phantom and SafePal connect in the Windows and Android live apps.</p>
             )}
           </div>
         )}

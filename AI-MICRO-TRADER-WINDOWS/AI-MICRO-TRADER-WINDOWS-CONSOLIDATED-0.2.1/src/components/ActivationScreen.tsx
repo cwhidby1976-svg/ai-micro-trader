@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ClientLicenseState, licensingService } from '../services/licensingService';
 import { PlatformType } from '../server/types';
+import { navigatePublicPath } from './RiskDisclaimer';
 
 interface ActivationScreenProps {
   licenseState: ClientLicenseState;
@@ -134,6 +135,16 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {onOpenMemberPortal && <button onClick={onOpenMemberPortal} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 text-xs font-semibold">User Login</button>}
+          <a
+            href="/disclaimer"
+            onClick={(e) => {
+              e.preventDefault();
+              navigatePublicPath('/disclaimer');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 text-xs font-semibold"
+          >
+            Risk Disclaimer
+          </a>
         </div>
       </div>
 

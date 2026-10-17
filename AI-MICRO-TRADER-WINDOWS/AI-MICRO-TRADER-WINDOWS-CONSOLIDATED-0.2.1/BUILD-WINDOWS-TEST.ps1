@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
+Remove-Item Env:\NODE_ENV -ErrorAction SilentlyContinue
 Write-Host 'Building AI Micro Trader consolidated Windows TEST v0.2.1' -ForegroundColor Cyan
-npm install
+npm install --include=dev
 if ($LASTEXITCODE -ne 0) { throw 'Frontend npm install failed' }
 $env:VITE_APP_DISTRIBUTION = 'desktop'
 try {
@@ -15,7 +16,7 @@ if (Test-Path '.\desktop\dist') { Remove-Item '.\desktop\dist' -Recurse -Force }
 Copy-Item '.\dist' '.\desktop\dist' -Recurse
 Push-Location '.\desktop'
 try {
-  npm install
+  npm install --include=dev
   if ($LASTEXITCODE -ne 0) { throw 'Desktop npm install failed' }
   npm run pack:win
   if ($LASTEXITCODE -ne 0) { throw 'Installer packaging failed' }

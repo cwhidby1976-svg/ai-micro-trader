@@ -28885,9 +28885,9 @@ var require_bn = __commonJS({
   }
 });
 
-// node_modules/base-x/src/index.js
+// node_modules/@solana/web3.js/node_modules/base-x/src/index.js
 var require_src2 = __commonJS({
-  "node_modules/base-x/src/index.js"(exports2, module2) {
+  "node_modules/@solana/web3.js/node_modules/base-x/src/index.js"(exports2, module2) {
     "use strict";
     var _Buffer = require_safe_buffer().Buffer;
     function base(ALPHABET) {
@@ -29020,9 +29020,9 @@ var require_src2 = __commonJS({
   }
 });
 
-// node_modules/bs58/index.js
+// node_modules/@solana/web3.js/node_modules/bs58/index.js
 var require_bs58 = __commonJS({
-  "node_modules/bs58/index.js"(exports2, module2) {
+  "node_modules/@solana/web3.js/node_modules/bs58/index.js"(exports2, module2) {
     var basex = require_src2();
     var ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     module2.exports = basex(ALPHABET);
@@ -29040,6 +29040,150 @@ var require_sha256 = __commonJS({
     exports2.sha256 = sha2_ts_1.sha256;
     exports2.SHA224 = sha2_ts_1.SHA224;
     exports2.sha224 = sha2_ts_1.sha224;
+  }
+});
+
+// node_modules/borsh/node_modules/base-x/src/index.js
+var require_src3 = __commonJS({
+  "node_modules/borsh/node_modules/base-x/src/index.js"(exports2, module2) {
+    "use strict";
+    var _Buffer = require_safe_buffer().Buffer;
+    function base(ALPHABET) {
+      if (ALPHABET.length >= 255) {
+        throw new TypeError("Alphabet too long");
+      }
+      var BASE_MAP = new Uint8Array(256);
+      for (var j = 0; j < BASE_MAP.length; j++) {
+        BASE_MAP[j] = 255;
+      }
+      for (var i = 0; i < ALPHABET.length; i++) {
+        var x = ALPHABET.charAt(i);
+        var xc = x.charCodeAt(0);
+        if (BASE_MAP[xc] !== 255) {
+          throw new TypeError(x + " is ambiguous");
+        }
+        BASE_MAP[xc] = i;
+      }
+      var BASE = ALPHABET.length;
+      var LEADER = ALPHABET.charAt(0);
+      var FACTOR = Math.log(BASE) / Math.log(256);
+      var iFACTOR = Math.log(256) / Math.log(BASE);
+      function encode(source) {
+        if (Array.isArray(source) || source instanceof Uint8Array) {
+          source = _Buffer.from(source);
+        }
+        if (!_Buffer.isBuffer(source)) {
+          throw new TypeError("Expected Buffer");
+        }
+        if (source.length === 0) {
+          return "";
+        }
+        var zeroes = 0;
+        var length = 0;
+        var pbegin = 0;
+        var pend = source.length;
+        while (pbegin !== pend && source[pbegin] === 0) {
+          pbegin++;
+          zeroes++;
+        }
+        var size = (pend - pbegin) * iFACTOR + 1 >>> 0;
+        var b58 = new Uint8Array(size);
+        while (pbegin !== pend) {
+          var carry = source[pbegin];
+          var i2 = 0;
+          for (var it1 = size - 1; (carry !== 0 || i2 < length) && it1 !== -1; it1--, i2++) {
+            carry += 256 * b58[it1] >>> 0;
+            b58[it1] = carry % BASE >>> 0;
+            carry = carry / BASE >>> 0;
+          }
+          if (carry !== 0) {
+            throw new Error("Non-zero carry");
+          }
+          length = i2;
+          pbegin++;
+        }
+        var it2 = size - length;
+        while (it2 !== size && b58[it2] === 0) {
+          it2++;
+        }
+        var str = LEADER.repeat(zeroes);
+        for (; it2 < size; ++it2) {
+          str += ALPHABET.charAt(b58[it2]);
+        }
+        return str;
+      }
+      function decodeUnsafe(source) {
+        if (typeof source !== "string") {
+          throw new TypeError("Expected String");
+        }
+        if (source.length === 0) {
+          return _Buffer.alloc(0);
+        }
+        var psz = 0;
+        var zeroes = 0;
+        var length = 0;
+        while (source[psz] === LEADER) {
+          zeroes++;
+          psz++;
+        }
+        var size = (source.length - psz) * FACTOR + 1 >>> 0;
+        var b256 = new Uint8Array(size);
+        while (psz < source.length) {
+          var charCode = source.charCodeAt(psz);
+          if (charCode > 255) {
+            return;
+          }
+          var carry = BASE_MAP[charCode];
+          if (carry === 255) {
+            return;
+          }
+          var i2 = 0;
+          for (var it3 = size - 1; (carry !== 0 || i2 < length) && it3 !== -1; it3--, i2++) {
+            carry += BASE * b256[it3] >>> 0;
+            b256[it3] = carry % 256 >>> 0;
+            carry = carry / 256 >>> 0;
+          }
+          if (carry !== 0) {
+            throw new Error("Non-zero carry");
+          }
+          length = i2;
+          psz++;
+        }
+        var it4 = size - length;
+        while (it4 !== size && b256[it4] === 0) {
+          it4++;
+        }
+        var vch = _Buffer.allocUnsafe(zeroes + (size - it4));
+        vch.fill(0, 0, zeroes);
+        var j2 = zeroes;
+        while (it4 !== size) {
+          vch[j2++] = b256[it4++];
+        }
+        return vch;
+      }
+      function decode(string) {
+        var buffer = decodeUnsafe(string);
+        if (buffer) {
+          return buffer;
+        }
+        throw new Error("Non-base" + BASE + " character");
+      }
+      return {
+        encode,
+        decodeUnsafe,
+        decode
+      };
+    }
+    module2.exports = base;
+  }
+});
+
+// node_modules/borsh/node_modules/bs58/index.js
+var require_bs582 = __commonJS({
+  "node_modules/borsh/node_modules/bs58/index.js"(exports2, module2) {
+    var basex = require_src3();
+    var ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    module2.exports = basex(ALPHABET);
   }
 });
 
@@ -29449,7 +29593,7 @@ var require_lib3 = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.deserializeUnchecked = exports2.deserialize = exports2.serialize = exports2.BinaryReader = exports2.BinaryWriter = exports2.BorshError = exports2.baseDecode = exports2.baseEncode = void 0;
     var bn_js_1 = __importDefault2(require_bn());
-    var bs58_1 = __importDefault2(require_bs58());
+    var bs58_1 = __importDefault2(require_bs582());
     var encoding = __importStar2(require_encoding_lib());
     var ResolvedTextDecoder = typeof TextDecoder !== "function" ? encoding.TextDecoder : TextDecoder;
     var textDecoder = new ResolvedTextDecoder("utf-8", { fatal: true });
@@ -70447,8 +70591,8 @@ var TradingEngine = class {
     const defaults = {
       dailyStopLossPercent: 5,
       maxSlippageTolerancePercent: 1,
-      positionStopLossPercent: 5,
-      // Strictly -5% Hard Stop-Loss
+      positionStopLossPercent: 3.5,
+      // Strictly -3.5% Hard Stop-Loss
       maxRiskPerTradePercent: 0.5,
       autoCloseOnDailyStopLoss: true
     };
@@ -70725,20 +70869,23 @@ var TradingEngine = class {
   // --- EIGHT-POINT ICC STRATEGY EVALUATOR ---
   evaluateTokens(raw) {
     return raw.map((tok) => {
-      const closes = tok.candles1m.map((c) => c.close);
-      const ema9 = closes[closes.length - 1] * 1.01;
-      const ema21 = closes[0] * 0.99;
+      const candles = tok.candles1m || [];
+      const closes = candles.map((c) => c.close);
+      const ema9 = closes.length > 0 ? closes[closes.length - 1] * 1.01 : 0;
+      const ema21 = closes.length > 0 ? closes[0] * 0.99 : 0;
       const check1 = !tok.security.honeypot && tok.security.mintDisabled && tok.security.freezeDisabled && tok.security.score >= 85;
       const check2 = tok.liquidity >= 25e3 && tok.bondingCurvePercent >= 80;
-      const check3 = tok.volume24h >= 1e5 && tok.candles1m.length >= 5;
+      const check3 = tok.volume24h >= 1e5 && candles.length >= 5;
       const check4 = ema9 > ema21;
-      const lastCandle = tok.candles1m[tok.candles1m.length - 1];
-      const prevCandles = tok.candles1m.slice(-6, -1);
+      const lastCandle = candles[candles.length - 1];
+      const prevCandles = candles.slice(-6, -1);
       const avgPrevVolume = prevCandles.length > 0 ? prevCandles.reduce((acc, c) => acc + c.volume, 0) / prevCandles.length : 1;
-      const highestPrevHigh = prevCandles.length > 0 ? Math.max(...prevCandles.map((c) => c.high)) : lastCandle.close;
-      const check5 = lastCandle.close >= highestPrevHigh && lastCandle.volume >= avgPrevVolume * 1.3 || tok.targetPhase === "IMPULSE" || tok.targetPhase === "CONTINUATION" || tok.targetPhase === "CONSOLIDATING";
+      const highestPrevHigh = prevCandles.length > 0 ? Math.max(...prevCandles.map((c) => c.high)) : lastCandle?.close ?? 0;
+      const check5 = Boolean(
+        lastCandle && (lastCandle.close >= highestPrevHigh && lastCandle.volume >= avgPrevVolume * 1.3 || tok.targetPhase === "IMPULSE" || tok.targetPhase === "CONTINUATION" || tok.targetPhase === "CONSOLIDATING")
+      );
       const check6 = check5 && tok.change5m >= 1 || tok.targetPhase === "CONSOLIDATING" || tok.targetPhase === "CONTINUATION";
-      const check7 = check6 && tok.priceUsd >= lastCandle.open || tok.targetPhase === "CONTINUATION";
+      const check7 = check6 && lastCandle && tok.priceUsd >= lastCandle.open || tok.targetPhase === "CONTINUATION";
       const plannedRiskPercent = 0.5;
       const check8 = plannedRiskPercent <= 0.5 && tok.security.buyTax === 0;
       const scoreOutOf8 = [
@@ -70838,34 +70985,30 @@ var TradingEngine = class {
       let exitReason = pos.exitReason;
       const autoPosition = pos.isAutopilotPosition === true;
       const peakReturnPercent = (highestPriceSeen - pos.entryPrice) / pos.entryPrice * 100;
-      const activationPercent = autoPosition ? 2.5 : 4.5;
+      const trailPp = pos.trailingStopMarginPercent > 0 ? pos.trailingStopMarginPercent : 2;
       let profitProtected = pos.profitProtectionActive;
-      if (peakReturnPercent >= activationPercent && !profitProtected) {
+      if (autoPosition && peakReturnPercent >= 2 && !profitProtected) {
         profitProtected = true;
         newState = "PROFIT_PROTECTION_ACTIVE";
         this.logActivity(
           "RISK",
-          `[PROFIT LOCK-IN] ${pos.tokenSymbol}: peak +${peakReturnPercent.toFixed(2)}%; threshold +${activationPercent}%`
+          `[PROFIT LOCK-IN] [AUTOPILOT] ${pos.tokenSymbol}: +${peakReturnPercent.toFixed(2)}% reached. Break-even locked with ${trailPp}pp trailing protection active.`
         );
       }
       let effectiveStopLossPrice = pos.stopLossPrice;
       if (autoPosition) {
-        const stopReturn = profitProtected ? Math.max(-3.5, peakReturnPercent - 2) : -3.5;
+        const stopReturn = profitProtected ? Math.max(0, peakReturnPercent - trailPp) : -3.5;
         effectiveStopLossPrice = Math.max(
           effectiveStopLossPrice,
           pos.entryPrice * (1 + stopReturn / 100)
         );
       } else {
-        if (profitProtected) {
-          effectiveStopLossPrice = Math.max(effectiveStopLossPrice, pos.entryPrice * 1.02);
-        }
-        if ((pos.trailingStopActive || profitProtected) && (pos.trailingStopMarginPercent > 0 || profitProtected)) {
-          const margin = pos.trailingStopMarginPercent > 0 ? pos.trailingStopMarginPercent : 3;
-          effectiveStopLossPrice = Math.max(
-            effectiveStopLossPrice,
-            highestPriceSeen * (1 - margin / 100)
-          );
-        }
+        const trailActive = pos.trailingStopActive !== false;
+        const stopReturn = trailActive ? Math.max(-3.5, peakReturnPercent - trailPp) : -3.5;
+        effectiveStopLossPrice = Math.max(
+          effectiveStopLossPrice,
+          pos.entryPrice * (1 + stopReturn / 100)
+        );
       }
       if (curPrice <= effectiveStopLossPrice) {
         newState = "CLOSED";
@@ -71110,10 +71253,10 @@ var TradingEngine = class {
       };
     }
     const tokenQty = tradeUsd / tok.priceUsd;
-    const slPercent = params.isAuto ? -3.5 : params.stopLossPercent !== void 0 ? params.stopLossPercent : -5;
-    const ptPercent = params.isAuto ? 25 : params.profitTargetPercent !== void 0 ? params.profitTargetPercent : 25;
-    const trailingActive = params.isAuto ? true : params.trailingStopActive ?? true;
-    const trailingMargin = params.isAuto ? 2 : params.trailingStopMarginPercent || 4;
+    const slPercent = -3.5;
+    const ptPercent = params.profitTargetPercent !== void 0 ? params.profitTargetPercent : 25;
+    const trailingActive = true;
+    const trailingMargin = 2;
     const order = {
       id: createUniqueEngineId(`ord_${tok.symbol}`),
       type: "BUY",
@@ -71143,7 +71286,7 @@ var TradingEngine = class {
       stopLossPercent: slPercent,
       stopLossPrice: +(tok.priceUsd * (1 + slPercent / 100)).toFixed(6),
       profitTargetPercent: ptPercent,
-      takeProfitStandardPrice: +(tok.priceUsd * (params.isAuto ? 1.025 : 1.045)).toFixed(6),
+      takeProfitStandardPrice: +(tok.priceUsd * (params.isAuto ? 1.02 : 1)).toFixed(6),
       takeProfitMaxPrice: +(tok.priceUsd * (1 + ptPercent / 100)).toFixed(6),
       // +25% max profit cap
       profitProtectionActive: false,
@@ -71159,7 +71302,7 @@ var TradingEngine = class {
     this.orderHistory.unshift(order);
     this.logActivity(
       "ORDER",
-      `${params.isAuto ? "[AUTOPILOT]" : "[MANUAL]"} Entered position ${tok.symbol} (${params.amountSol} SOL @ $${tok.priceUsd.toFixed(6)}) via Jupiter | SL: ${slPercent}% | TP: +${ptPercent}%`
+      `${params.isAuto ? "[AUTOPILOT]" : "[MANUAL]"} Entered position ${tok.symbol} (${params.amountSol} SOL @ $${tok.priceUsd.toFixed(6)}) via Jupiter | SL: ${slPercent}% | ${params.isAuto ? "BE lock at +2% with 2pp trail" : "2pp trailing active"} | TP: +${ptPercent}%`
     );
     this.notify();
     return { success: true, order };
@@ -71322,6 +71465,17 @@ var TradingEngine = class {
     if (!Number.isFinite(amountSol) || amountSol <= 0) return;
     this.paperTotalEquityUsd += amountSol * this.solPriceUsd;
     this.logActivity("ORDER", `Demo faucet credited ${amountSol.toFixed(4)} SOL (simulated).`);
+    this.notify();
+  }
+  applyPaperDemoWallet(amountSol) {
+    if (!Number.isFinite(amountSol) || amountSol <= 0) return;
+    this.positions = [];
+    this.orderHistory = [];
+    this.paperTotalEquityUsd = +(amountSol * this.solPriceUsd).toFixed(2);
+    this.logActivity(
+      "ORDER",
+      `Paper demo wallet loaded at ${amountSol.toFixed(4)} SOL (simulated). Open paper trades were cleared.`
+    );
     this.notify();
   }
   resetPaperSimulation() {
@@ -71585,6 +71739,223 @@ async function loadMarketSnapshot(options) {
   }
 }
 
+// src/services/dexMarketFeed.ts
+var DEX_FEED_LIMIT = 25;
+var USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+var EXCLUDED_MINTS = /* @__PURE__ */ new Set([
+  SOL_MINT,
+  USDC_MINT,
+  USDT_MINT,
+  "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB"
+]);
+var EXCLUDED_SYMBOLS = /* @__PURE__ */ new Set([
+  "SOL",
+  "WSOL",
+  "USDC",
+  "USDT",
+  "USD1",
+  "PYUSD",
+  "CASH",
+  "DAI"
+]);
+function asNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+function mintFromGeckoId(id) {
+  if (!id) return "";
+  return id.startsWith("solana_") ? id.slice("solana_".length) : id;
+}
+function unknownSecurity2(reason) {
+  return {
+    honeypot: false,
+    mintDisabled: false,
+    freezeDisabled: false,
+    lpBurnedPercent: 0,
+    top10HoldersPercent: 100,
+    buyTax: 0,
+    sellTax: 0,
+    score: 0,
+    warningFlags: [reason]
+  };
+}
+function sparklineFromLive(price, change5m, change1h, change24h) {
+  const p24 = change24h <= -99 ? price * 0.2 : price / (1 + change24h / 100);
+  const p1h = change1h <= -99 ? price * 0.5 : price / (1 + change1h / 100);
+  const p5 = change5m <= -99 ? price * 0.8 : price / (1 + change5m / 100);
+  return [Math.max(0, p24), Math.max(0, p1h), Math.max(0, p5), price];
+}
+function ageMinutesFromIso(iso, epochMs) {
+  const ms = epochMs && epochMs > 0 ? epochMs : iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.max(0, Math.round((Date.now() - ms) / 6e4));
+}
+function isExcludedMemeCandidate(symbol, mint) {
+  const sym = symbol.trim().toUpperCase();
+  return !mint || EXCLUDED_MINTS.has(mint) || EXCLUDED_SYMBOLS.has(sym);
+}
+function mapGeckoPoolToToken(pool, included) {
+  const baseId = pool.relationships?.base_token?.data?.id || "";
+  const includedToken = included.get(baseId);
+  const mint = includedToken?.attributes?.address || mintFromGeckoId(baseId);
+  const poolName = pool.attributes?.name || "";
+  const symbol = (includedToken?.attributes?.symbol || poolName.split("/")[0] || "").trim();
+  const name = (includedToken?.attributes?.name || symbol).trim();
+  if (isExcludedMemeCandidate(symbol, mint)) return null;
+  const priceUsd = asNumber(pool.attributes?.base_token_price_usd);
+  if (priceUsd <= 0) return null;
+  const change5m = asNumber(pool.attributes?.price_change_percentage?.m5);
+  const change1h = asNumber(pool.attributes?.price_change_percentage?.h1);
+  const change24h = asNumber(pool.attributes?.price_change_percentage?.h24);
+  const liquidity = asNumber(pool.attributes?.reserve_in_usd);
+  const volume24h = asNumber(pool.attributes?.volume_usd?.h24);
+  const marketCap = asNumber(pool.attributes?.market_cap_usd) || asNumber(pool.attributes?.fdv_usd);
+  return {
+    id: `dex_${mint}`,
+    symbol,
+    name,
+    mint,
+    priceUsd,
+    change5m,
+    change1h,
+    change24h,
+    marketCap,
+    liquidity,
+    volume24h,
+    bondingCurvePercent: 0,
+    ageMinutes: ageMinutesFromIso(pool.attributes?.pool_created_at),
+    candles1m: [],
+    security: unknownSecurity2("Live DEX listing. Add a GoPlus key in API Setup to score mint/freeze/honeypot."),
+    sparkline: sparklineFromLive(priceUsd, change5m, change1h, change24h)
+  };
+}
+function mergeDexScreenerPair(token, pair) {
+  const priceUsd = asNumber(pair.priceUsd) || token.priceUsd;
+  const change5m = pair.priceChange?.m5 ?? token.change5m;
+  const change1h = pair.priceChange?.h1 ?? token.change1h;
+  const change24h = pair.priceChange?.h24 ?? token.change24h;
+  return {
+    ...token,
+    symbol: pair.baseToken?.symbol || token.symbol,
+    name: pair.baseToken?.name || token.name,
+    priceUsd,
+    change5m,
+    change1h,
+    change24h,
+    marketCap: asNumber(pair.marketCap) || asNumber(pair.fdv) || token.marketCap,
+    liquidity: asNumber(pair.liquidity?.usd) || token.liquidity,
+    volume24h: asNumber(pair.volume?.h24) || token.volume24h,
+    ageMinutes: ageMinutesFromIso(void 0, pair.pairCreatedAt) || token.ageMinutes,
+    sparkline: sparklineFromLive(priceUsd, change5m, change1h, change24h)
+  };
+}
+function rankUniqueMemeTokens(tokens, limit = DEX_FEED_LIMIT) {
+  const best = /* @__PURE__ */ new Map();
+  for (const token of tokens) {
+    const prev = best.get(token.mint);
+    if (!prev || token.volume24h > prev.volume24h) best.set(token.mint, token);
+  }
+  return [...best.values()].sort((a, b) => b.volume24h - a.volume24h || b.liquidity - a.liquidity).slice(0, limit);
+}
+function solPriceFromGecko(pools) {
+  for (const pool of pools) {
+    const quoteMint = mintFromGeckoId(pool.relationships?.quote_token?.data?.id);
+    if (quoteMint === SOL_MINT) {
+      const px = asNumber(pool.attributes?.quote_token_price_usd);
+      if (px > 0) return px;
+    }
+  }
+  return null;
+}
+async function fetchJson(url2, timeoutMs = 12e3) {
+  const res = await fetch(url2, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+function includedTokenMap(included) {
+  const map = /* @__PURE__ */ new Map();
+  for (const item of included || []) {
+    if (item.id) map.set(item.id, item);
+  }
+  return map;
+}
+async function loadGeckoSolanaPools() {
+  const urls = [
+    "https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?include=base_token,quote_token&page=1",
+    "https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?include=base_token,quote_token&page=2"
+  ];
+  const pages = await Promise.all(urls.map((url2) => fetchJson(url2).catch(() => null)));
+  const pools = [];
+  const included = /* @__PURE__ */ new Map();
+  for (const page of pages) {
+    if (!page || !Array.isArray(page.data)) continue;
+    pools.push(...page.data);
+    for (const [id, token] of includedTokenMap(page.included)) included.set(id, token);
+  }
+  return { pools, included, solPriceUsd: solPriceFromGecko(pools) };
+}
+async function enrichWithDexScreener(tokens) {
+  if (tokens.length === 0) return tokens;
+  const batches = [];
+  const mints = tokens.map((t) => t.mint);
+  for (let i = 0; i < mints.length; i += 20) batches.push(mints.slice(i, i + 20));
+  const pairsByMint = /* @__PURE__ */ new Map();
+  for (const batch of batches) {
+    try {
+      const json = await fetchJson(`https://api.dexscreener.com/tokens/v1/solana/${batch.join(",")}`);
+      const pairs = Array.isArray(json) ? json : json?.pairs || [];
+      for (const pair of pairs) {
+        if (pair.chainId && pair.chainId !== "solana") continue;
+        const mint = pair.baseToken?.address;
+        if (!mint) continue;
+        const prev = pairsByMint.get(mint);
+        const liq = asNumber(pair.liquidity?.usd);
+        if (!prev || liq > asNumber(prev.liquidity?.usd)) pairsByMint.set(mint, pair);
+      }
+    } catch {
+    }
+  }
+  return tokens.map((token) => {
+    const pair = pairsByMint.get(token.mint);
+    return pair ? mergeDexScreenerPair(token, pair) : token;
+  });
+}
+async function loadDexMemeSnapshot() {
+  const started = Date.now();
+  try {
+    const { pools, included, solPriceUsd } = await loadGeckoSolanaPools();
+    const mapped = pools.map((pool) => mapGeckoPoolToToken(pool, included)).filter((token) => Boolean(token));
+    const ranked = rankUniqueMemeTokens(await enrichWithDexScreener(mapped), DEX_FEED_LIMIT);
+    if (ranked.length === 0) {
+      throw new Error("No Solana meme pools returned from the public DEX feed");
+    }
+    const usedDex = ranked.some((t) => t.volume24h > 0);
+    return {
+      ok: true,
+      source: usedDex ? "DexScreener + GeckoTerminal (Solana mainnet, no API key)" : "GeckoTerminal Solana trending pools (no API key)",
+      latencyMs: Date.now() - started,
+      solPriceUsd,
+      tokens: ranked
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      source: "UNAVAILABLE",
+      latencyMs: Date.now() - started,
+      solPriceUsd: null,
+      tokens: [],
+      error: error instanceof Error ? error.message : "Live DEX meme feed unavailable"
+    };
+  }
+}
+
 // src/server/routes.ts
 var apiRouter = (0, import_express.Router)();
 var adminSessions = /* @__PURE__ */ new Map();
@@ -71754,6 +72125,14 @@ apiRouter.get("/market/snapshot", rateLimiter(20, 6e4), async (req, res) => {
     ...snapshot,
     keys: db.getPublicUserApiKeys(caller.ownerId)
   });
+});
+apiRouter.get("/market/dex-feed", rateLimiter(30, 6e4), async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const snapshot = await loadDexMemeSnapshot();
+  if (!snapshot.ok) {
+    return res.status(502).json(snapshot);
+  }
+  return res.json(snapshot);
 });
 apiRouter.get("/pricing", async (req, res) => {
   try {

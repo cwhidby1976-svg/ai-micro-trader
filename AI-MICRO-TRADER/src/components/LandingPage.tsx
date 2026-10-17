@@ -29,6 +29,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { ClientLicenseState, licensingService } from '../services/licensingService';
+import { navigatePublicPath } from './RiskDisclaimer';
 
 interface LandingPageProps {
   licenseState: ClientLicenseState;
@@ -109,7 +110,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   const handleDownloadFile = (platform: 'windows' | 'android') => {
-    window.alert(platform === 'windows' ? 'Windows installer is not available yet. Please check back for the official release.' : 'Android installer is not available yet. Please check back for the official release.');
+    if (platform === 'windows') {
+      window.location.assign('/downloads/AI-Micro-Trader-LICENSING-TEST-Setup-0.2.1.exe');
+      return;
+    }
+    window.alert('Android installer is not available yet. Please check back for the official release.');
   };
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
@@ -230,6 +235,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               How It Works
             </button>
+            <a
+              href="/disclaimer"
+              onClick={(e) => {
+                e.preventDefault();
+                navigatePublicPath('/disclaimer');
+              }}
+              className="hidden xl:inline text-zinc-400 hover:text-white transition"
+            >
+              Risk Disclaimer
+            </a>
           </nav>
 
           {/* Right Action Buttons (Windows, Android, Request Access, Launch Terminal, User Login) */}
@@ -276,32 +291,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </header>
 
       {/* LIVE NETWORK & PROTOCOL STATUS TICKER */}
-      <div className="bg-[#05070b] border-b border-zinc-800/80 px-4 lg:px-8 py-2 text-[11px] font-mono text-zinc-400 overflow-x-auto">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-6 whitespace-nowrap">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-zinc-300 font-semibold">Solana Mainnet:</span>
-              <span className="text-zinc-400">RPC via application backend when available</span>
-            </div>
-            <div className="hidden sm:flex items-center gap-2 text-zinc-600">|</div>
-            <div className="hidden sm:flex items-center gap-2">
-              <Zap className="w-3 h-3 text-cyan-400" />
-              <span className="text-zinc-300 font-semibold">Jupiter v6 Aggregator:</span>
-              <span className="text-cyan-400">Use your own API key in dashboard API Setup</span>
-            </div>
-            <div className="hidden md:flex items-center gap-2 text-zinc-600">|</div>
-            <div className="hidden md:flex items-center gap-2">
-              <Shield className="w-3 h-3 text-emerald-400" />
-              <span className="text-zinc-300 font-semibold">GoPlus Contract Auditing:</span>
-              <span className="text-zinc-400">Used when a security response is available</span>
-            </div>
+      <div className="bg-[#05070b] border-b border-zinc-800/80 px-4 lg:px-8 py-2.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-evenly gap-3 text-[13px] text-zinc-300 whitespace-nowrap overflow-hidden">
+          <div className="flex items-center justify-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="font-semibold">Solana Mainnet:</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold text-[10px]">
-              Production Release v2.6 Stable
-            </span>
+          <span className="h-4 w-px bg-zinc-700 shrink-0" />
+          <div className="flex items-center justify-center gap-2 shrink-0">
+            <Zap className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="font-semibold">Jupiter v6 Aggregator:</span>
           </div>
+          <span className="h-4 w-px bg-zinc-700 shrink-0" />
+          <div className="flex items-center justify-center gap-2 shrink-0">
+            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="font-semibold">GoPlus Contract Auditing:</span>
+          </div>
+          <span className="h-4 w-px bg-zinc-700 shrink-0" />
+          <span className="shrink-0 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold text-[12px]">
+            Production Release v2.6 Stable
+          </span>
         </div>
       </div>
 
@@ -542,7 +551,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="flex-1 py-3 bg-[#0078D7] hover:bg-[#006cc2] text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Windows - Release Pending</span>
+                  <span>Download Windows TEST (.exe)</span>
                 </button>
                 <button
                   onClick={() => setDownloadModal('windows')}
@@ -961,6 +970,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span>• Powered by NextGen Traders Hub</span>
           </div>
           <div className="flex items-center gap-4">
+            <a
+              href="/disclaimer"
+              onClick={(e) => {
+                e.preventDefault();
+                navigatePublicPath('/disclaimer');
+              }}
+              className="text-cyan-400 hover:text-cyan-300 font-semibold transition"
+            >
+              Risk Disclaimer
+            </a>
+            <span className="text-zinc-700">|</span>
             {onOpenMemberPortal && (
               <button
                 onClick={onOpenMemberPortal}
@@ -993,9 +1013,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <h3 className="font-bold text-white text-base">Windows Application</h3>
               <button onClick={() => setDownloadModal(null)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-amber-400 font-semibold mb-3">Official Release Pending</p>
-            <p className="text-zinc-300 text-sm leading-relaxed mb-5">The official Windows installer is not available for download yet. We are verifying the installation package before release. Please check back for availability.</p>
-            <button onClick={() => setDownloadModal(null)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition">Close</button>
+            <p className="text-cyan-400 font-semibold mb-3">Windows TEST installer v0.2.1</p>
+            <p className="text-zinc-300 text-sm leading-relaxed mb-4">
+              This is a licensing TEST build for your PC. Live Jupiter trading stays disabled. Windows SmartScreen may warn because the file is unsigned. The official production installer is still pending.
+            </p>
+            <button
+              onClick={() => {
+                handleDownloadFile('windows');
+                setDownloadModal(null);
+              }}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition mb-2"
+            >
+              Download TEST Setup (.exe)
+            </button>
+            <button onClick={() => setDownloadModal(null)} className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs rounded-xl transition">Close</button>
           </div>
         </div>
       )}

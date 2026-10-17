@@ -1,11 +1,58 @@
-﻿const { app, BrowserWindow, shell, dialog } = require('electron');
+﻿const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { registerLicensingBridge } = require('./licensing-bridge.cjs');
 
 const PORT = process.env.PORT || '3000';
 const LOCAL_ORIGIN = `http://127.0.0.1:${PORT}`;
+const PROTOCOL = 'aimicrotrader';
 let engineProcess = null;
+let mainWindow = null;
+
+function isAllowedWalletUrl(url) {
+  return (
+    typeof url === 'string' &&
+    (url.startsWith('https://phantom.app/ul/') ||
+      url.startsWith('phantom://') ||
+      url.startsWith('https://link.safepal.io/') ||
+      url.startsWith('safepalwallet://') ||
+      url.startsWith('safepal://'))
+  );
+}
+
+function findProtocolUrl(argv = []) {
+  return argv.find((item) => typeof item === 'string' && item.startsWith(`${PROTOCOL}://`));
+}
+
+function deliverWalletLink(url) {
+  if (!url || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('wallet:deeplink', url);
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    deliverWalletLink(findProtocolUrl(argv));
+  });
+}
+
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL);
+}
+
+ipcMain.handle('wallet:open-external', async (_event, url) => {
+  if (!isAllowedWalletUrl(url)) throw new Error('Wallet URL is not allowed');
+  await shell.openExternal(url);
+});
 
 function startLocalEngine() {
   const serverJs = path.join(__dirname, 'local-server.cjs');
@@ -65,7 +112,7 @@ app.whenReady().then(async () => {
     return;
   }
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1450,
     height: 900,
     minWidth: 1050,
@@ -81,18 +128,26 @@ app.whenReady().then(async () => {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://') || url.startsWith(LOCAL_ORIGIN)) shell.openExternal(url);
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith(LOCAL_ORIGIN) || isAllowedWalletUrl(url)) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (event, url) => {
+  mainWindow.webContents.on('will-navigate', (event, url) => {
     const allowed = url.startsWith(LOCAL_ORIGIN) || url.startsWith('http://localhost:');
     if (!allowed) event.preventDefault();
   });
-  win.webContents.on('did-fail-load', (_event, code, desc, url, isMainFrame) => {
+  mainWindow.webContents.on('did-fail-load', (_event, code, desc, url, isMainFrame) => {
     if (isMainFrame) dialog.showErrorBox('AI Micro Trader load error', `${code}: ${desc}\n${url}`);
   });
-  await win.loadURL(LOCAL_ORIGIN);
+  await mainWindow.loadURL(LOCAL_ORIGIN);
+  deliverWalletLink(findProtocolUrl(process.argv));
+});
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  deliverWalletLink(url);
 });
 
 app.on('before-quit', () => stopLocalEngine());

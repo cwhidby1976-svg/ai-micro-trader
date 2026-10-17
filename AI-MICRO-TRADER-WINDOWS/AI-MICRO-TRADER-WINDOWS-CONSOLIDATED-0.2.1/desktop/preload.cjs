@@ -10,3 +10,11 @@ contextBridge.exposeInMainWorld('desktopLicensing', {
     return ipcRenderer.invoke('licensing:request', { path, body });
   }
 });
+contextBridge.exposeInMainWorld('desktopWallet', {
+  openExternal: (url) => ipcRenderer.invoke('wallet:open-external', url),
+  onDeeplink: (callback) => {
+    const listener = (_event, url) => callback(url);
+    ipcRenderer.on('wallet:deeplink', listener);
+    return () => ipcRenderer.removeListener('wallet:deeplink', listener);
+  }
+});

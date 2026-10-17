@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/tests/licensing.test.ts && tsx src/tests/trading_permissions.test.ts && tsx src/tests/public_license_request.test.ts && tsx src/tests/jupiter_market.test.ts"
+    "test": "tsx src/tests/licensing.test.ts && tsx src/tests/trading_permissions.test.ts && tsx src/tests/public_license_request.test.ts && tsx src/tests/jupiter_market.test.ts && tsx src/tests/solana_wallets.test.ts && tsx src/tests/dex_market_feed.test.ts && tsx src/tests/public_disclaimer.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -27,7 +27,9 @@
     "pg": "^8.23.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "bs58": "^6.0.0",
     "recharts": "^3.10.1",
+    "tweetnacl": "^1.0.3",
     "vite": "^8.3.0"
   },
   "devDependencies": {
