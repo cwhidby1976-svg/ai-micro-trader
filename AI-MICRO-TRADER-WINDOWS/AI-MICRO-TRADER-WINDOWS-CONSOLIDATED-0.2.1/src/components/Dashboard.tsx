@@ -1440,12 +1440,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        <div className="mb-4 rounded-2xl border border-emerald-800/40 bg-gradient-to-r from-emerald-950/35 via-[#080b12] to-zinc-950 p-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-3 max-w-xl">
+        <div className="mb-4 rounded-2xl border border-emerald-800/40 bg-gradient-to-r from-emerald-950/35 via-[#080b12] to-zinc-950 p-4 flex items-center justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4 text-emerald-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-white text-sm">Portfolio 50/50 Fund Allocation</h3>
                 <span className="text-[10px] font-semibold text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">
@@ -1457,7 +1457,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-stretch gap-3 text-right">
+          <div className="flex items-stretch gap-3 text-right shrink-0">
             <div className="min-w-[148px] rounded-xl border border-zinc-800/90 bg-zinc-950/80 px-4 py-3">
               <div className="text-[10px] uppercase tracking-wide text-zinc-500">
                 Trading 50% <span className="text-zinc-600">Max Budget</span>
