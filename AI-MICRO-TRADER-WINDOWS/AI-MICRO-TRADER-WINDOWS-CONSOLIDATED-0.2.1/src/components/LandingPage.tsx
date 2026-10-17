@@ -1286,7 +1286,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-zinc-300 leading-relaxed">
-                Launch the terminal right now in <strong>Paper Demo Mode</strong> with simulated SOL to test the real-time Solana meme coin scanner, 8-point ICC indicator scores, and manual trades before activating a key.
+                Launch the terminal in <strong>Paper Demo Mode</strong>. The scanner streams live Solana meme-coin prices, volume, and liquidity from DexScreener. Trades stay simulated with paper SOL — no Jupiter API key required to watch the market.
               </p>
               <button
                 type="button"

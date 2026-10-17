@@ -5,6 +5,7 @@ import { PlanType, PlatformType } from './types';
 import { tradingEngine } from '../services/tradingEngine';
 import { decidePublicLicenseRequest } from './publicLicenseRequest';
 import { loadMarketSnapshot } from '../services/jupiterMarket';
+import { loadDexMemeSnapshot } from '../services/dexMarketFeed';
 
 export const apiRouter = Router();
 
@@ -235,6 +236,15 @@ apiRouter.get('/market/snapshot', rateLimiter(20, 60_000), async (req: Request, 
     ...snapshot,
     keys: db.getPublicUserApiKeys(caller.ownerId),
   });
+});
+
+apiRouter.get('/market/dex-feed', rateLimiter(30, 60_000), async (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const snapshot = await loadDexMemeSnapshot();
+  if (!snapshot.ok) {
+    return res.status(502).json(snapshot);
+  }
+  return res.json(snapshot);
 });
 
 // ==========================================

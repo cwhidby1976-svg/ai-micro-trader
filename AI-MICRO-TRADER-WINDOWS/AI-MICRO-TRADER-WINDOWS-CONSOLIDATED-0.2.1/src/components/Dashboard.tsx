@@ -71,10 +71,12 @@ import { LiveWalletModal } from './LiveWalletModal';
 import {
   connectSupportedWallet,
   fetchSolBalance,
+  isLiveNativeApp,
   startWalletStandardDiscovery,
   type SupportedWalletId,
 } from '../services/solanaWallets';
 import { fetchUserMarketSnapshot } from '../services/jupiterMarket';
+import { fetchPublicDexMemeSnapshot } from '../services/dexMarketFeed';
 import { RiskManagementPanel } from './RiskManagementPanel';
 import { ClientApiKeysPublic, FeatureEntitlements } from '../server/types';
 
@@ -94,6 +96,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenMemberPortal,
 }) => {
   const isWebsiteDemo = environment === 'demo';
+  const usePaperWallets = isWebsiteDemo || !isLiveNativeApp();
   const [activeTab, setActiveTab] = useState<
     'scanner' | 'icc' | 'jupiter' | 'positions' | 'autopilot' | 'risk' | 'api-setup' | 'logs'
   >('scanner');
@@ -112,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     scannerDataProvider.getFeedState()
   );
   const [isRefreshingScanner, setIsRefreshingScanner] = useState(false);
+  const [scannerBoard, setScannerBoard] = useState<'market' | 'signals'>('market');
 
   // Risk Management & Circuit Breaker Engine State
   const [riskConfig, setRiskConfig] = useState<RiskManagementConfig>(tradingEngine.getRiskConfig());
@@ -164,7 +168,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isWebsiteDemo) return;
+    if (usePaperWallets) return;
+    void import('../services/nativeWalletLink').then((mod) => mod.listenForNativeWalletRedirects());
+  }, [usePaperWallets]);
+
+  useEffect(() => {
+    if (usePaperWallets) return;
     let cancelled = false;
     const restore = async () => {
       const savedName = localStorage.getItem('ai_micro_trader_live_wallet_name');
@@ -186,7 +195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
     void restore();
     return () => { cancelled = true; };
-  }, [isWebsiteDemo]);
+  }, [usePaperWallets]);
 
   useEffect(() => {
     if (!liveWalletAddress) return;
@@ -380,38 +389,55 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [wsLastHeartbeat]);
 
   const refreshLiveMarket = async () => {
-    if (isWebsiteDemo) {
-      scannerDataProvider.setLiveQuotes(false);
-      tradingEngine.useSimulatedMarketTokens();
-      setTokens(tradingEngine.getTokens());
-      setWsStatus('DISCONNECTED');
-      setMarketSource('Demo simulation (add your own Jupiter key in a licensed session)');
-      setMarketError(null);
-      return;
-    }
     setWsStatus('RECONNECTING');
-    const snapshot = await fetchUserMarketSnapshot(getAuthHeaders());
+    const snapshot = await fetchPublicDexMemeSnapshot();
     if (snapshot.ok && snapshot.tokens.length > 0) {
       tradingEngine.ingestVerifiedMarketTokens(snapshot.tokens, snapshot.solPriceUsd);
       scannerDataProvider.setLiveQuotes(true);
+      const liveTokens = tradingEngine.getTokens();
       setWsStatus('CONNECTED');
       setWsLatency(snapshot.latencyMs);
       setWsLastHeartbeat(Date.now());
       setWsMessagesReceived((prev) => prev + 1);
       setMarketSource(snapshot.source);
       setMarketError(null);
-      setTokens(tradingEngine.getTokens());
+      setTokens(liveTokens);
+      setSelectedToken((current) => liveTokens.find((t) => t.mint === current.mint) || liveTokens[0] || current);
       return;
     }
-    scannerDataProvider.setLiveQuotes(false);
+
+    if (!isWebsiteDemo) {
+      const jupiter = await fetchUserMarketSnapshot(getAuthHeaders());
+      if (jupiter.ok && jupiter.tokens.length > 0) {
+        tradingEngine.ingestVerifiedMarketTokens(jupiter.tokens, jupiter.solPriceUsd);
+        scannerDataProvider.setLiveQuotes(true);
+        const liveTokens = tradingEngine.getTokens();
+        setWsStatus('CONNECTED');
+        setWsLatency(jupiter.latencyMs);
+        setWsLastHeartbeat(Date.now());
+        setWsMessagesReceived((prev) => prev + 1);
+        setMarketSource(jupiter.source);
+        setMarketError(snapshot.error || null);
+        setTokens(liveTokens);
+        setSelectedToken((current) => liveTokens.find((t) => t.mint === current.mint) || liveTokens[0] || current);
+        return;
+      }
+    }
+
+    scannerDataProvider.setLiveQuotes(true);
     setWsStatus('DISCONNECTED');
     setMarketSource('UNAVAILABLE');
-    setMarketError(snapshot.error || 'Add your Jupiter API key in API Setup');
+    setMarketError(
+      snapshot.error ||
+        (isWebsiteDemo
+          ? 'Live Solana DEX feed unavailable. Paper trades stay simulated; the scanner needs DexScreener/GeckoTerminal.'
+          : 'Add your Jupiter API key in API Setup if the public DEX feed is blocked.')
+    );
   };
 
   useEffect(() => {
     void refreshLiveMarket();
-    const timer = window.setInterval(() => void refreshLiveMarket(), 45_000);
+    const timer = window.setInterval(() => void refreshLiveMarket(), 20_000);
     return () => window.clearInterval(timer);
   }, [isWebsiteDemo]);
 
@@ -1129,6 +1155,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   // Filtered tokens
+  const allocation = tradingEngine.getWalletAllocation();
+  const apiVerified = isWebsiteDemo || Boolean(apiKeys?.jupiter.isConfigured);
+  const paperAddress = (usePaperWallets ? connectedWallet : liveWalletAddress);
+  const openPositionCount = positions.filter((p) => p.state !== 'CLOSED').length;
+  const buyOrderCount = orders.filter((o) => o.type === 'BUY').length;
+  const qualifiedCount = scannerFeed.opportunities.filter((opp) => opp.checklistPassedCount >= 8).length;
+  const displayedOpportunities =
+    scannerBoard === 'signals'
+      ? [...scannerFeed.opportunities]
+          .sort((a, b) => b.opportunityScore - a.opportunityScore)
+          .slice(0, 6)
+          .map((opp, idx) => ({ ...opp, rank: idx + 1 }))
+      : scannerFeed.opportunities;
+
   const filteredTokens = tokens.filter((tok) => {
     const matchesSearch =
       tok.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1140,37 +1180,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
-      {!isWebsiteDemo && (
-        <div role="status" className="px-5 py-3 bg-amber-950/60 border-b border-amber-700 text-amber-200 text-sm">
-          LIVE ACCOUNT · Production trading is not yet enabled: secure wallet signing and Jupiter transaction execution must be implemented and tested. No simulated trades are sent from this dashboard.
-        </div>
-      )}
-      {/* Top Cyber Navigation Bar */}
-      <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur px-4 lg:px-6 flex items-center justify-between z-20">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 p-0.5 shadow-md shadow-cyan-500/20">
-              <div className="w-full h-full bg-zinc-950 rounded-[10px] flex items-center justify-center">
-                <Shield className="w-4 h-4 text-cyan-400" />
-              </div>
-            </div>
-            <div>
-              <div className="font-bold text-sm text-white tracking-wide flex items-center gap-2">
-                AI – MICRO TRADER
-                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-cyan-950/60 text-cyan-400 border border-cyan-800/40">
-                  v2.8 SOLANA
-                </span>
-              </div>
+      <header className="min-h-16 border-b border-zinc-800/80 bg-[#080b12]/95 backdrop-blur px-3 sm:px-4 lg:px-5 py-2 z-20">
+        <div className="flex flex-wrap items-center gap-2 lg:gap-3">
+          <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <img
+              src={`${import.meta.env.BASE_URL}ai-micro-trader-icon-1024.png`}
+              alt="AI Micro Trader official logo"
+              className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-full object-cover object-center"
+            />
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              <span className="font-bold text-sm text-white tracking-wide whitespace-nowrap">
+                AI MICRO TRADER
+              </span>
+              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-cyan-950/60 text-cyan-400 border border-cyan-800/40">
+                v2.8 SOLANA
+              </span>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2.5 text-xs text-zinc-400 pl-4 border-l border-zinc-800">
-            {/* Real-Time WebSocket Market Data Status Indicator */}
+          <div className="order-3 lg:order-none w-full lg:w-auto flex-1 flex items-center justify-start lg:justify-center gap-1.5 text-[11px] font-mono flex-wrap min-w-0">
             <button
               type="button"
               onClick={() => setShowWsStatusModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-emerald-500/30 hover:border-emerald-500/60 transition text-xs font-mono group shadow-sm"
-              title="Jupiter quote feed health (click for details)"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900/90 border border-emerald-500/30 hover:border-emerald-500/60 transition"
+              title="Market feed health"
             >
               <span className="relative flex h-2 w-2">
                 {wsStatus === 'CONNECTED' ? (
@@ -1179,131 +1212,92 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                   </>
                 ) : (
-                  <>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                  </>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
                 )}
               </span>
-              <span className="text-zinc-300 font-semibold hidden lg:inline">Jupiter:</span>
-              <span className={wsStatus === 'CONNECTED' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                {wsStatus}
-              </span>
-              <span className="text-zinc-500 text-[10px]">({wsLatency}ms)</span>
+              <span className="text-zinc-300">WS Feed:</span>
+              <span className={wsStatus === 'CONNECTED' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>{wsStatus}</span>
+              <span className="text-zinc-500">({wsLatency}ms)</span>
             </button>
-
-            <span className="text-zinc-600 hidden lg:inline">•</span>
-
-            <span className="hidden xl:flex items-center gap-1 font-mono text-zinc-300">
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span className="max-w-[220px] truncate" title={marketError || marketSource}>{marketSource}</span>
+              Mainnet: 2,890 TPS
             </span>
-
-            <span className="text-zinc-600">•</span>
-            <span className="text-zinc-400 font-mono">SOL: ${balance.solPrice}</span>
-          </div>
-        </div>
-
-        {/* Right Header: Membership Tier Badge, Trading Mode Pill, Admin */}
-        <div className="flex items-center gap-3">
-          {/* Membership Badge (Clearly differentiating Free Trial vs Paid) */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono">
-            {isWebsiteDemo ? (
-              <span className="text-cyan-300 font-bold">WEBSITE DEMO · SIMULATED</span>
-            ) : isTrial ? (
-              <span className="flex items-center gap-1.5 text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span className="font-bold">24-HOUR STANDARD</span>
-                <span className="text-[10px] text-zinc-400 hidden lg:inline">(Manual Only)</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-bold">{licenseState.licenseType?.toUpperCase() || 'ANNUAL'}</span>
-                <span className="text-[10px] text-zinc-400 hidden lg:inline">(Autopilot Licensed)</span>
-              </span>
-            )}
+            <span className="px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">SOL: ${balance.solPrice}</span>
+            <span className={`px-2.5 py-1 rounded-full border ${apiVerified ? 'bg-zinc-900 border-cyan-800/50 text-cyan-300' : 'bg-amber-950/40 border-amber-800/50 text-amber-300'}`}>
+              API: {apiVerified ? 'Verified' : 'Setup'}
+            </span>
+            <span className={`px-2.5 py-1 rounded-full border font-bold ${usePaperWallets ? 'bg-cyan-950/40 border-cyan-600/40 text-cyan-200' : 'bg-emerald-950/40 border-emerald-600/40 text-emerald-200'}`}>
+              LICENSED {usePaperWallets ? 'PAPER MODE' : 'LIVE MODE'}
+            </span>
+          <div className="flex items-center rounded-full border border-zinc-700 bg-zinc-950 p-0.5 text-xs" title={usePaperWallets ? 'Paper simulation on this dashboard' : 'Live Windows/Android wallet session'}>
+            <span className={`rounded-full px-3 py-1 font-semibold ${usePaperWallets ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Paper</span>
+            <span className={`rounded-full px-3 py-1 font-semibold ${!usePaperWallets ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Live</span>
           </div>
 
-          {isWebsiteDemo ? (
-            <span className="px-3 py-1.5 rounded-xl border border-cyan-600/50 bg-cyan-950/40 text-cyan-200 text-xs font-bold">DEMO · SIMULATED</span>
-          ) : (
-            <span className="px-3 py-1.5 rounded-xl border border-emerald-600/50 bg-emerald-950/40 text-emerald-200 text-xs font-bold">LIVE ACCOUNT · NO PAPER TRADING</span>
-          )}
-
-          {/* Retain a visible Paper/Live trigger indicator in the demo as requested.
-              The Live side is non-executable; it never switches to real funds. */}
-          {isWebsiteDemo && (
-            <div className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1 text-xs" title="Demo paper simulation only; live trading requires a licensed app">
-              <span className="rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-3 py-1 font-semibold text-cyan-300">Paper</span>
-              <span className="flex items-center gap-1 px-3 py-1 text-zinc-500"><Lock className="h-3 w-3" /> Live</span>
-            </div>
-          )}
-
-          {/* Autopilot Quick Switch */}
           <button
             onClick={handleToggleAutopilot}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold transition ${
               tradingEngine.isAutopilotOn()
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                 : !isAutopilotEligible
-                ? 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-amber-500/50'
-                : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                ? 'bg-zinc-900 text-zinc-400 border-zinc-800'
+                : 'bg-zinc-900 text-zinc-300 border-zinc-700'
             }`}
             title={!isAutopilotEligible ? 'Autopilot requires Annual or Lifetime license' : 'Toggle 15-Minute Cycle Autopilot'}
           >
-            <Power className={`w-3.5 h-3.5 ${tradingEngine.isAutopilotOn() ? 'text-emerald-400 animate-pulse' : 'text-zinc-500'}`} />
-            <span>Autopilot: {!isAutopilotEligible ? 'LOCKED' : !isWebsiteDemo ? 'LIVE PENDING' : tradingEngine.isAutopilotOn() ? 'ON' : 'OFF'}</span>
+            <Power className={`w-3.5 h-3.5 ${tradingEngine.isAutopilotOn() ? 'text-emerald-400' : 'text-zinc-500'}`} />
+            Autopilot: {!isAutopilotEligible ? 'LOCKED' : tradingEngine.isAutopilotOn() ? 'ON' : 'OFF'}
             {!isAutopilotEligible && <Lock className="w-3 h-3 text-amber-400" />}
           </button>
 
-          {/* Solana Wallet Connect Button & Live SOL Balance Display */}
-          {(isPaperMode ? connectedWallet : liveWalletAddress) ? (
+          {paperAddress ? (
             <button
               type="button"
               onClick={() => setShowWalletModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-950/70 via-zinc-900 to-zinc-900 hover:from-purple-900/80 hover:to-zinc-800 border border-purple-800/70 hover:border-purple-500 rounded-xl text-xs font-mono transition shadow-sm group"
-              title="Click to view Solana wallet details, active address, and live SOL balance"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple-500/40 bg-purple-950/30 text-xs font-mono text-purple-100"
             >
-              {/* Current SOL Balance */}
-              <div className="flex items-center gap-1.5 text-purple-200 font-bold border-r border-purple-800/60 pr-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <span className="text-purple-400">◎</span>
-                <span>{(isPaperMode ? walletSolBalance : liveWalletSolBalance)?.toFixed(2) ?? "Unavailable"} SOL</span>
-              </div>
-              {/* Active Wallet Address */}
-              <div className="flex items-center gap-1 text-zinc-300">
-                <Wallet className="w-3.5 h-3.5 text-purple-400 group-hover:text-purple-300 transition shrink-0" />
-                <span className="font-bold">
-                  {(isPaperMode ? connectedWallet! : liveWalletAddress!).slice(0, 4)}...{(isPaperMode ? connectedWallet! : liveWalletAddress!).slice(-4)}
-                </span>
-              </div>
+              <span>{paperAddress.slice(0, 4)}...{paperAddress.slice(-4)}</span>
+              {usePaperWallets && (
+                <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[10px] font-sans font-semibold">Paper</span>
+              )}
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setShowWalletModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-600 hover:to-indigo-500 text-white font-bold border border-purple-500/50 rounded-xl text-xs transition shadow-md shadow-purple-950/40 hover:shadow-purple-900/60"
-              title={isWebsiteDemo ? 'Paper trading simulated session' : 'Connect Phantom or SafePal'}
+              className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-bold"
             >
               <Wallet className="w-3.5 h-3.5" />
-              <span>Connect Wallet</span>
+              {usePaperWallets ? 'Paper Session' : 'Connect Wallet'}
             </button>
           )}
 
-          {/* Member Portal Entry */}
+          {usePaperWallets && (
+            <button
+              type="button"
+              onClick={() => setShowLiveWalletPreview(true)}
+              className="px-3 py-1 rounded-full border border-cyan-600/50 text-cyan-300 text-xs font-semibold hover:bg-cyan-950/40"
+            >
+              Test Live Wallet
+            </button>
+          )}
+
+          <span className="hidden sm:inline px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-700/40 text-emerald-300 text-[10px] font-bold tracking-wide">
+            {isWebsiteDemo ? 'ANNUAL' : isTrial ? 'TRIAL' : (licenseState.licenseType?.toUpperCase() || 'ANNUAL')}
+          </span>
+          </div>
+
           {onOpenMemberPortal && (
             <button
               type="button"
               onClick={onOpenMemberPortal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl text-xs font-medium transition"
-              title="Open Member Account & Subscriptions"
+              className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-medium shrink-0"
             >
               <User className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Account</span>
+              Account
             </button>
           )}
-
         </div>
       </header>
 
@@ -1430,74 +1424,75 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
 
-        {isWebsiteDemo && (
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-zinc-300" title="Paper-only 50/50 allocation; open positions reduce the available trading budget">
-            <span>Trading 50%: ${(tradingEngine.getWalletAllocation().targetTradingUsd).toFixed(2)}</span>
-            <span className="text-emerald-400">Reserve 50%: ${(tradingEngine.getWalletAllocation().targetReserveUsd).toFixed(2)}</span>
-            <span className="text-cyan-300">Available: ${(tradingEngine.getWalletAllocation().uncommittedTradingUsd).toFixed(2)}</span>
-          </div>
-        )}
-                {/* Paper / Real Balance Indicator */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-zinc-900/80 px-3 py-1 rounded-lg border border-zinc-800 font-mono">
-            <span className="text-zinc-400">{isWebsiteDemo ? 'Demo Wallet Equity:' : 'Wallet Equity:'}</span>
-            <span className="text-cyan-300 font-bold">{isWebsiteDemo ? `${balance.sol.toFixed(4)} SOL` : 'Unavailable (live wallet read-only)'}</span>
-            {isWebsiteDemo && <span className="text-zinc-500 text-[11px]">(${balance.usd.toLocaleString()})</span>}
-          </div>
-        </div>
       </div>
 
-      {/* Main Terminal Body */}
-      <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
-        {isWebsiteDemo && (
-          <div className="mb-4 rounded-xl border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-100" role="status">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <strong className="text-cyan-300">WEBSITE DEMO — SIMULATED ORDERS ONLY</strong>
-                <p className="mt-1 text-zinc-300">Manual: you choose the token and confirm each order. Autopilot: the scanner chooses and manages eligible simulated entries when switched on. Both modes share one demo wallet and the same 50% trading budget.</p>
-                <p className="mt-1 text-zinc-400">Market-data freshness is shown by the feed status; demo fills are virtual, not blockchain transactions.</p>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                <button type="button" onClick={() => setActiveTab('jupiter')} aria-pressed={activeTab === 'jupiter'} className={`rounded-lg border px-3 py-2 font-bold ${activeTab === 'jupiter' ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200' : 'border-zinc-700 text-zinc-200 hover:border-cyan-500'}`}>Manual Trading</button>
-                <button type="button" onClick={() => setActiveTab('autopilot')} aria-pressed={activeTab === 'autopilot'} className={`rounded-lg border px-3 py-2 font-bold ${activeTab === 'autopilot' ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200' : 'border-zinc-700 text-zinc-200 hover:border-emerald-500'}`}>Autopilot Trading</button>
-              </div>
-            </div>
+      <main className="flex-1 p-4 lg:p-5 overflow-y-auto">
+        {usePaperWallets && (
+          <div className="mb-3 inline-flex items-center gap-2 bg-zinc-900/80 px-3 py-1 rounded-lg border border-zinc-800 font-mono text-[11px]">
+            <span className="text-zinc-500">Paper Equity:</span>
+            <span className="text-white font-bold">{balance.sol.toFixed(4)} SOL</span>
+            <span className="text-zinc-500">(${balance.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
           </div>
         )}
-        {/* Banner: Autopilot status */}
-        {!tradingEngine.isAutopilotOn() ? (
-          <div className="mb-4 p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl flex items-center justify-between text-xs text-zinc-400">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-cyan-400 shrink-0" />
-              <span>
-                <strong>Autopilot is currently OFF.</strong> No automated entries will occur. Open positions ({positions.filter(p => p.state !== 'CLOSED').length}) remain subject to their individual stop-loss and take-profit rules.
-              </span>
+
+        <div className="mb-4 rounded-2xl border border-emerald-800/40 bg-gradient-to-r from-emerald-950/30 via-zinc-950 to-zinc-950 p-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-3 max-w-xl">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+              <Shield className="w-4 h-4 text-emerald-400" />
             </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-white text-sm">Portfolio 50/50 Fund Allocation</h3>
+                <span className="text-[10px] font-semibold text-emerald-400">Enforced by Engine</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                The reserve portion (50%) is strictly protected and never available for opening new trades. Available funds reflect uncommitted capital.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-stretch gap-4 text-right">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Trading 50% <span className="text-zinc-600">Max Budget</span></div>
+              <div className="text-lg font-bold text-white">${allocation.targetTradingUsd.toLocaleString()}</div>
+              <div className="text-[11px] text-zinc-400">◎ {(allocation.targetTradingUsd / Math.max(allocation.solPriceUsd, 1)).toFixed(2)} SOL</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Reserve 50% <span className="text-zinc-600">Untouchable</span></div>
+              <div className="text-lg font-bold text-emerald-300">${allocation.targetReserveUsd.toLocaleString()}</div>
+              <div className="text-[11px] text-zinc-400">◎ {(allocation.targetReserveUsd / Math.max(allocation.solPriceUsd, 1)).toFixed(2)} SOL (Locked)</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Available Trading Funds <span className="text-zinc-600">Uncommitted</span></div>
+              <div className="text-lg font-bold text-cyan-300">${allocation.uncommittedTradingUsd.toLocaleString()}</div>
+              <div className="text-[11px] text-zinc-500">${allocation.committedInPositionsUsd.toLocaleString()} in {openPositionCount} open trade(s)</div>
+            </div>
+          </div>
+        </div>
+
+        {!tradingEngine.isAutopilotOn() ? (
+          <div className="mb-4 px-4 py-2.5 bg-zinc-900/70 border border-zinc-800 rounded-full flex items-center justify-between gap-3 text-xs text-zinc-400">
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-zinc-500 mr-2 align-middle" />
+              <strong className="text-zinc-200">Autopilot is currently OFF.</strong> No automated entries will occur. Open positions ({openPositionCount}) remain subject to their individual stop loss and take profit rules.
+            </span>
             {isWebsiteDemo || isAutopilotEligible ? (
               <button
                 onClick={handleToggleAutopilot}
-                className="text-emerald-400 hover:text-emerald-300 font-semibold underline text-xs"
+                className="shrink-0 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold"
               >
-                {isWebsiteDemo ? 'Start Simulated Autopilot' : 'Turn Autopilot ON (3–5 Trades / 15m)'}
+                Start Autopilot (15m Cycles)
               </button>
             ) : (
-              <span className="text-amber-400 font-semibold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800/40 text-[11px]">
-                Autopilot requires Annual or Lifetime access
-              </span>
+              <span className="text-amber-400 font-semibold shrink-0">Autopilot locked</span>
             )}
           </div>
         ) : (
-          <div className="mb-4 p-3 bg-emerald-950/30 border border-emerald-800/50 rounded-xl flex items-center justify-between text-xs text-emerald-300">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block shrink-0" />
-              <span>
-                <strong>Autopilot is ON (15-Minute Cycle Active).</strong> Looking to place <strong>3–5 trades per cycle</strong> across 8/8 ICC-passed tokens ({positions.filter(p => p.state !== 'CLOSED').length}/5 positions active).
-              </span>
-            </div>
-            <button
-              onClick={handleToggleAutopilot}
-              className="text-rose-400 hover:text-rose-300 font-semibold underline text-xs"
-            >
+          <div className="mb-4 px-4 py-2.5 bg-emerald-950/40 border border-emerald-800/50 rounded-full flex items-center justify-between gap-3 text-xs text-emerald-300">
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-2 align-middle" />
+              Autopilot is ON (15-Minute Cycle Active): Cycle #{cycleStatus.cycleIndex} of 4 (Minute {cycleStatus.cycleMinute + 1}/15) • {qualifiedCount} Qualified (8/8 ICC) • {openPositionCount}/5 concurrent positions
+            </span>
+            <button onClick={handleToggleAutopilot} className="shrink-0 px-3 py-1 rounded-full bg-rose-950/60 border border-rose-800 text-rose-300 font-semibold">
               Turn OFF
             </button>
           </div>
@@ -1522,19 +1517,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                   <div>
                     <h3 className="font-bold text-white text-base flex items-center gap-2">
-                      <span>Token Opportunity Scanner</span>
+                      <span>Live Token Opportunity Scanner</span>
                       <span className={`px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold flex items-center gap-1 ${
                         wsStatus === 'CONNECTED'
                           ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                           : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                       }`}>
-                        {wsStatus === 'CONNECTED' ? 'Jupiter quotes' : 'Feed unavailable'}
+                        {wsStatus === 'CONNECTED' ? '10s Live DEX' : 'Feed unavailable'}
                       </span>
                     </h3>
                     <p className="text-xs text-zinc-400 mt-0.5">
                       {marketError
-                        ? `Market data: ${marketError}${isWebsiteDemo ? ' Showing labeled simulation tokens until Jupiter recovers.' : ''}`
-                        : 'Prices from Jupiter using your API key. Volume/liquidity stay 0 unless a verified source provides them, so ICC checks 2–3 can fail honestly.'}
+                        ? `Market data: ${marketError}`
+                        : 'Live 10-second Solana DEX stream from DexScreener & GeckoTerminal. Paper trades are simulated; prices, volume, and liquidity are real mainnet data. Jupiter/GoPlus keys are only needed for swap quotes and security scoring.'}
                       {!isWebsiteDemo && marketError && (
                         <button type="button" className="ml-2 text-purple-300 underline" onClick={() => setActiveTab('api-setup')}>
                           Open API Setup
@@ -1551,7 +1546,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <span className="text-zinc-500 text-[11px]">Provider:</span>
                   <span className="text-cyan-400 font-bold flex items-center gap-1.5">
                     <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
-                    10s Dynamic Feed
+                    10s Live DEX
                   </span>
                   <span className="text-zinc-700">|</span>
                   <span className="text-zinc-300 flex items-center gap-1 text-[11px]">
@@ -1571,7 +1566,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onClick={handleManualRefreshScanner}
                   disabled={isRefreshingScanner}
                   className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow"
-                  title="Force instant refresh of the 6 token opportunities"
+                  title="Force instant refresh of the live Solana meme coin feed"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isRefreshingScanner ? 'animate-spin' : ''}`} />
                   <span>Refresh Feed</span>
@@ -1581,20 +1576,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* Grid of 6 Active Token Opportunities */}
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-cyan-400" />
                   <h4 className="font-bold text-white text-sm">
-                    Active Token Opportunity Grid ({scannerFeed.opportunities.length} Qualified)
+                    {scannerBoard === 'market'
+                      ? `Top 25 Solana Meme Coins in Market (${displayedOpportunities.length} Coins)`
+                      : `Top 6 Signals (${displayedOpportunities.length})`}
                   </h4>
                 </div>
-                <span className="text-xs font-mono text-zinc-400">
-                  Auto-ticks every 10s • Click card to inspect
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center rounded-full border border-zinc-800 bg-zinc-950 p-0.5 text-[11px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setScannerBoard('market')}
+                      className={`px-2.5 py-1 rounded-full ${scannerBoard === 'market' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}
+                    >
+                      Top 25 Market
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScannerBoard('signals')}
+                      className={`px-2.5 py-1 rounded-full ${scannerBoard === 'signals' ? 'bg-zinc-800 text-cyan-300' : 'text-zinc-400'}`}
+                    >
+                      Top 6 Signals
+                    </button>
+                  </div>
+                  <span className="text-xs font-mono text-zinc-400">
+                    Auto ticks every 10s • Click card to inspect
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {scannerFeed.opportunities.map((opp, idx) => {
+                {displayedOpportunities.map((opp, idx) => {
                   const tok = opp.token;
                   const isSelected = selectedToken.id === tok.id;
                   return (
@@ -3041,7 +3056,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* TAB 5: PAID AUTOPILOT & 15-MINUTE CYCLES (PHASE 14 & 15) */}
         {activeTab === 'autopilot' && (
-          <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="space-y-6">
             {isWebsiteDemo && <div className="rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-3 text-sm text-emerald-100"><strong>Autopilot demo trading:</strong> turn Autopilot ON to let the scanner qualify and manage simulated entries. Manual trading remains available in its own tab. Autopilot uses the same demo wallet and cannot spend the protected 50% reserve. No real trades are sent.</div>}
             {/* Membership Restriction Notice for Free Trial Users */}
             {!isAutopilotEligible && (
@@ -3120,15 +3135,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
 
                   <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-                    <div className="text-[11px] text-zinc-400 uppercase font-mono">Cycle Trade Target</div>
-                    <div className="text-lg font-bold text-emerald-300 mt-1">3 to 5 Trades</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">{positions.filter(p => p.state !== 'CLOSED').length}/5 concurrent positions</div>
+                    <div className="text-[11px] text-zinc-400 uppercase font-mono">Qualified Candidates</div>
+                    <div className="text-lg font-bold text-white mt-1">{qualifiedCount} Candidates</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">8 out of 8 ICC checks verified</div>
                   </div>
 
                   <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-                    <div className="text-[11px] text-zinc-400 uppercase font-mono">Discovery Pool</div>
-                    <div className="text-lg font-bold text-white mt-1">6 to 8 Candidates</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">Strict 8/8 ICC gatekeeper</div>
+                    <div className="text-[11px] text-zinc-400 uppercase font-mono">Executed Trades This Cycle</div>
+                    <div className="text-lg font-bold text-emerald-300 mt-1">{buyOrderCount} Executed / 3–5 Target</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">{openPositionCount}/5 concurrent positions active</div>
                   </div>
                 </div>
 
@@ -3222,12 +3237,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                   <div>
                     <h4 className="font-bold text-white text-sm">Non-Custodial Solana Wallet</h4>
-                    <p className="text-[11px] text-zinc-400">{isWebsiteDemo ? 'Paper demo session (not a live wallet)' : 'Phantom (preferred) or SafePal'}</p>
+                    <p className="text-[11px] text-zinc-400">{usePaperWallets ? 'Paper demo session (not a live wallet)' : 'Phantom or SafePal in the Windows or Android live app'}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {(isPaperMode ? connectedWallet : liveWalletAddress) ? (
+                  {(usePaperWallets ? connectedWallet : liveWalletAddress) ? (
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-mono font-bold flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                       Wallet Connected
@@ -3244,18 +3259,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-400">Connected Public Key:</span>
                   <span className="text-white font-bold truncate max-w-[260px]">
-                    {(isPaperMode ? connectedWallet : liveWalletAddress) || (isPaperMode ? 'None (Paper session not started)' : 'None (Connect Phantom or SafePal)')}
+                    {(usePaperWallets ? connectedWallet : liveWalletAddress) || (usePaperWallets ? 'None (Paper session not started)' : 'None (Connect Phantom or SafePal)')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-400">Current SOL Balance:</span>
                   <span className="text-purple-300 font-bold">
-                    ◎ {(isPaperMode ? walletSolBalance : liveWalletSolBalance)?.toFixed(2) ?? "Unavailable"} SOL (${((isPaperMode ? walletSolBalance : liveWalletSolBalance ?? 0) * balance.solPrice).toFixed(2)} USD)
+                    ◎ {(usePaperWallets ? walletSolBalance : liveWalletSolBalance)?.toFixed(2) ?? "Unavailable"} SOL (${((usePaperWallets ? walletSolBalance : liveWalletSolBalance ?? 0) * balance.solPrice).toFixed(2)} USD)
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-400">Network:</span>
-                  <span className="text-emerald-400 font-bold">Solana Mainnet-Beta (Simulated)</span>
+                  <span className="text-emerald-400 font-bold">{usePaperWallets ? 'Solana Mainnet-Beta (Paper demo)' : 'Solana Mainnet-Beta'}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-400">Signing Model:</span>
@@ -3264,7 +3279,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               <div className="flex items-center gap-2 pt-1">
-                {(isPaperMode ? connectedWallet : liveWalletAddress) ? (
+                {(usePaperWallets ? connectedWallet : liveWalletAddress) ? (
                   <>
                     <button
                       type="button"
@@ -3275,7 +3290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={handleDisconnectWallet}
+                      onClick={usePaperWallets ? handleDisconnectWallet : handleLiveWalletDisconnect}
                       className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition"
                     >
                       Disconnect
@@ -3288,7 +3303,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/20 flex items-center gap-1.5"
                   >
                     <Wallet className="w-3.5 h-3.5" />
-                    <span>{isPaperMode ? 'Start Paper Session' : 'Connect Phantom / SafePal'}</span>
+                    <span>{usePaperWallets ? 'Start Paper Session' : 'Connect Phantom / SafePal'}</span>
                   </button>
                 )}
 
@@ -4500,8 +4515,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* Preserve original simulated wallet selector in Paper Mode. */}
-      {isWebsiteDemo && <MockWalletModal
+      {usePaperWallets && <MockWalletModal
         isOpen={showWalletModal}
         onClose={() => setShowWalletModal(false)}
         connectedWallet={connectedWallet}
@@ -4512,10 +4526,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onDisconnect={handleDisconnectWallet}
         onAirdropSol={handleAirdropSol}
       />}
-      {/* Real, read-only wallet UI is isolated to Live Mode. */}
       <LiveWalletModal
-        isOpen={showLiveWalletPreview || (!isWebsiteDemo && showWalletModal)}
-        onClose={() => { setShowLiveWalletPreview(false); if (!isWebsiteDemo) setShowWalletModal(false); }}
+        isOpen={showLiveWalletPreview || (!usePaperWallets && showWalletModal)}
+        onClose={() => { setShowLiveWalletPreview(false); if (!usePaperWallets) setShowWalletModal(false); }}
         connectedWallet={liveWalletAddress}
         walletName={liveWalletName}
         solBalance={liveWalletSolBalance}

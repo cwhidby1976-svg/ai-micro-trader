@@ -69,25 +69,27 @@ export class ScannerDataProvider {
   }
 
   /**
-   * Refreshes the top 6 active token opportunities from the trading engine
-   * and applies dynamic mock market updates (micro-variations in volume surge,
-   * momentum indicators, and prices) to keep the scanner feed lively.
+   * Live DEX mode lists the top 25 Solana meme coins by 24h volume.
+   * Simulated mode keeps the original 6 paper opportunities for tests.
    */
   public refreshOpportunities(): ScannerOpportunity[] {
     const allTokens = tradingEngine.getTokens();
+    const limit = this.liveQuotes ? 25 : 6;
 
-    // Prioritize tokens that pass GoPlus security and ICC checklist
     const qualifiedTokens = allTokens.filter(
       (t) => t.security.score >= 85 && t.iccPhase !== 'NEUTRAL'
     );
 
-    const candidates = qualifiedTokens.length >= 6 ? qualifiedTokens : allTokens;
+    const candidates = this.liveQuotes
+      ? [...allTokens].sort((a, b) => b.volume24h - a.volume24h || b.liquidity - a.liquidity)
+      : qualifiedTokens.length >= 6
+        ? qualifiedTokens
+        : allTokens;
 
-    // Generate dynamic opportunity evaluations
     const scoredList: ScannerOpportunity[] = candidates.map((token, index) => {
       const randomJitter = this.liveQuotes ? 0 : (Math.random() - 0.48) * 0.8;
       const volumeSurge = this.liveQuotes
-        ? 0
+        ? Math.round(Math.max(0, token.change5m) * 12)
         : Math.round(150 + (token.change5m > 0 ? token.change5m * 12 : 50) + (Math.random() * 60));
 
       let baseScore = Math.round(
@@ -141,11 +143,13 @@ export class ScannerDataProvider {
       };
     });
 
-    // Sort by opportunity score descending to find the top 6 opportunities
-    scoredList.sort((a, b) => b.opportunityScore - a.opportunityScore);
+    if (this.liveQuotes) {
+      scoredList.sort((a, b) => b.token.volume24h - a.token.volume24h || b.opportunityScore - a.opportunityScore);
+    } else {
+      scoredList.sort((a, b) => b.opportunityScore - a.opportunityScore);
+    }
 
-    // Limit to exactly the top 6 active token opportunities
-    this.opportunities = scoredList.slice(0, 6).map((opp, idx) => ({
+    this.opportunities = scoredList.slice(0, limit).map((opp, idx) => ({
       ...opp,
       rank: idx + 1,
     }));
