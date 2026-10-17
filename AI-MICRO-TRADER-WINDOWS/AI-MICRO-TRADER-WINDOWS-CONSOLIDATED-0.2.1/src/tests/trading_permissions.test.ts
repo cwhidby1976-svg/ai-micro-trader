@@ -187,6 +187,11 @@ async function runTradingPermissionsTests() {
   assert.strictEqual(userBPublic.goPlus.isConfigured, true, 'User B must have GoPlus configured');
   assert.strictEqual(userBPublic.jupiter.isConfigured, false, 'User B must NOT have Jupiter configured');
   assert.strictEqual(userBPublic.goPlus.maskedKey?.includes('1111'), true, 'User B has masked GoPlus key');
+  const secretsA = db.getUserProviderSecrets(userAId);
+  const secretsB = db.getUserProviderSecrets(userBId);
+  assert.strictEqual(secretsA.jupiterApiKey, 'jup_secret_a_12349999');
+  assert.strictEqual(secretsB.jupiterApiKey, null);
+  assert.strictEqual(JSON.stringify(userAPublic).includes('jup_secret_a_12349999'), false);
   console.log('  ✔ Zero credential crosstalk: User A and User B API credentials completely isolated');
 
   // -------------------------------------------------------------

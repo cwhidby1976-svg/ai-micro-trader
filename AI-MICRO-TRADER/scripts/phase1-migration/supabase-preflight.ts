@@ -1,6 +1,6 @@
 ﻿import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { supabase } from '../../src/server/supabase';
+import { requireSupabase } from '../../src/server/supabase';
 
 async function main() {
   const local = JSON.parse(
@@ -25,7 +25,7 @@ async function main() {
   for (const [source, table] of mappings) {
     const records = Array.isArray(local[source]) ? local[source] : [];
 
-    const { count, error } = await supabase
+    const { count, error } = await requireSupabase()
       .from(table)
       .select('id', { count: 'exact', head: true });
 
@@ -56,7 +56,7 @@ async function main() {
     for (let offset = 0; offset < ids.length; offset += 100) {
       const batch = ids.slice(offset, offset + 100);
 
-      const { data, error: lookupError } = await supabase
+      const { data, error: lookupError } = await requireSupabase()
         .from(table)
         .select('id')
         .in('id', batch);
@@ -74,7 +74,7 @@ async function main() {
     }
   }
 
-  const { count: stateCount, error: stateError } = await supabase
+  const { count: stateCount, error: stateError } = await requireSupabase()
     .from('amt_server_state')
     .select('id', { count: 'exact', head: true });
 

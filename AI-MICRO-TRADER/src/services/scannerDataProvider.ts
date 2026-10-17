@@ -34,6 +34,7 @@ export class ScannerDataProvider {
   private countdownTimer: any = null;
   private subscribers: Array<(state: ScannerFeedState) => void> = [];
   private isPaused: boolean = false;
+  private liveQuotes = false;
 
   constructor() {
     this.refreshOpportunities();
@@ -84,22 +85,24 @@ export class ScannerDataProvider {
 
     // Generate dynamic opportunity evaluations
     const scoredList: ScannerOpportunity[] = candidates.map((token, index) => {
-      // Dynamic simulated fluctuations every 10s tick
-      const randomJitter = (Math.random() - 0.48) * 0.8; // slight upward bias
-      const volumeSurge = Math.round(
-        150 + (token.change5m > 0 ? token.change5m * 12 : 50) + (Math.random() * 60)
-      );
+      const randomJitter = this.liveQuotes ? 0 : (Math.random() - 0.48) * 0.8;
+      const volumeSurge = this.liveQuotes
+        ? 0
+        : Math.round(150 + (token.change5m > 0 ? token.change5m * 12 : 50) + (Math.random() * 60));
 
-      // Base opportunity score on GoPlus security, ICC signal strength, and 5m momentum
       let baseScore = Math.round(
         token.security.score * 0.45 +
         token.iccSignalStrength * 0.4 +
         Math.min(15, Math.max(0, token.change5m)) +
         randomJitter * 2
       );
-      baseScore = Math.max(82, Math.min(99, baseScore));
+      if (!this.liveQuotes) {
+        baseScore = Math.max(82, Math.min(99, baseScore));
+      } else {
+        baseScore = Math.max(0, Math.min(100, baseScore));
+      }
 
-      let signalBadge = 'CONTINUATION BREAKOUT';
+      let signalBadge = this.liveQuotes ? 'JUPITER QUOTE' : 'CONTINUATION BREAKOUT';
       let momentum: ScannerOpportunity['momentum'] = 'STRONG_BULLISH';
       let status: ScannerOpportunity['status'] = 'ACTIVE_ENTRY';
 
@@ -170,6 +173,11 @@ export class ScannerDataProvider {
       totalOpportunitiesCount: this.opportunities.length,
       isPaused: this.isPaused,
     };
+  }
+
+  public setLiveQuotes(enabled: boolean) {
+    this.liveQuotes = enabled;
+    this.refreshOpportunities();
   }
 
   public manualRefresh() {

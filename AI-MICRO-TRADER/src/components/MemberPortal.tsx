@@ -221,19 +221,12 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, onActivateK
   };
 
   const handleConnectWallet = async () => {
-    // If Phantom is available in window.solana
-    const solana = (window as any).solana;
-    if (solana && solana.isPhantom) {
-      try {
-        const resp = await solana.connect();
-        setConnectedWallet(resp.publicKey.toString());
-      } catch {
-        // Fallback demo address
-        setConnectedWallet('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU');
-      }
-    } else {
-      // Connect mock/demo address for easy testing
-      setConnectedWallet('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU');
+    try {
+      const { connectSupportedWallet } = await import('../services/solanaWallets');
+      const result = await connectSupportedWallet('phantom');
+      setConnectedWallet(result.address);
+    } catch (err: any) {
+      alert(err?.message || 'Phantom was not detected. No simulated wallet will be connected.');
     }
   };
 
@@ -826,7 +819,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, onActivateK
                         onClick={handleConnectWallet}
                         className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-xs transition"
                       >
-                        Connect Phantom / Solflare
+                        Connect Phantom
                       </button>
                     )}
                   </div>

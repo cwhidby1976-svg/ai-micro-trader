@@ -68,6 +68,13 @@ import {
 import { PortfolioPerformanceChart } from './PortfolioPerformanceChart';
 import { MockWalletModal } from './MockWalletModal';
 import { LiveWalletModal } from './LiveWalletModal';
+import {
+  connectSupportedWallet,
+  fetchSolBalance,
+  startWalletStandardDiscovery,
+  type SupportedWalletId,
+} from '../services/solanaWallets';
+import { fetchUserMarketSnapshot } from '../services/jupiterMarket';
 import { RiskManagementPanel } from './RiskManagementPanel';
 import { ClientApiKeysPublic, FeatureEntitlements } from '../server/types';
 
@@ -153,22 +160,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [liveWalletBalanceError, setLiveWalletBalanceError] = useState<string | null>(null);
 
   useEffect(() => {
+    startWalletStandardDiscovery();
+  }, []);
+
+  useEffect(() => {
+    if (isWebsiteDemo) return;
+    let cancelled = false;
+    const restore = async () => {
+      const savedName = localStorage.getItem('ai_micro_trader_live_wallet_name');
+      const id: SupportedWalletId = savedName === 'SafePal' ? 'safepal' : 'phantom';
+      if (!localStorage.getItem('ai_micro_trader_live_wallet_address')) return;
+      try {
+        const result = await connectSupportedWallet(id, { silent: true });
+        if (cancelled) return;
+        setLiveWalletAddress(result.address);
+        setLiveWalletName(result.name);
+        localStorage.setItem('ai_micro_trader_live_wallet_address', result.address);
+        localStorage.setItem('ai_micro_trader_live_wallet_name', result.name);
+      } catch {
+        if (!cancelled) {
+          localStorage.removeItem('ai_micro_trader_live_wallet_address');
+          localStorage.removeItem('ai_micro_trader_live_wallet_name');
+        }
+      }
+    };
+    void restore();
+    return () => { cancelled = true; };
+  }, [isWebsiteDemo]);
+
+  useEffect(() => {
     if (!liveWalletAddress) return;
     let cancelled = false;
     const refresh = async () => {
       try {
-        const response = await fetch('https://api.mainnet-beta.solana.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [liveWalletAddress] }),
-        });
-        if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
-        const payload = await response.json();
-        if (payload.error || typeof payload.result?.value !== 'number') {
-          throw new Error(payload.error?.message || 'Invalid RPC response');
-        }
+        const payload = await fetchSolBalance(liveWalletAddress);
         if (!cancelled) {
-          setLiveWalletSolBalance(payload.result.value / 1_000_000_000);
+          setLiveWalletSolBalance(payload.sol);
           setLiveWalletBalanceError(null);
         }
       } catch (error) {
@@ -188,6 +215,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setLiveWalletName(name);
     setLiveWalletSolBalance(null);
     setLiveWalletBalanceError(null);
+    localStorage.setItem('ai_micro_trader_live_wallet_address', address);
+    localStorage.setItem('ai_micro_trader_live_wallet_name', name);
   };
 
   const handleLiveWalletDisconnect = () => {
@@ -195,6 +224,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setLiveWalletName('');
     setLiveWalletSolBalance(null);
     setLiveWalletBalanceError(null);
+    localStorage.removeItem('ai_micro_trader_live_wallet_address');
+    localStorage.removeItem('ai_micro_trader_live_wallet_name');
   };
 
   // Manual Swap Form State
@@ -238,8 +269,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [adjustMarginFeedback, setAdjustMarginFeedback] = useState<string | null>(null);
 
   // WebSocket Market Feed Status & Scanner Telemetry
-  const [wsStatus, setWsStatus] = useState<'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED'>('CONNECTED');
-  const [wsLatency, setWsLatency] = useState<number>(24);
+  const [wsStatus, setWsStatus] = useState<'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED'>('DISCONNECTED');
+  const [wsLatency, setWsLatency] = useState<number>(0);
+  const [marketSource, setMarketSource] = useState('Checking Jupiter…');
+  const [marketError, setMarketError] = useState<string | null>(null);
   const [wsLastHeartbeat, setWsLastHeartbeat] = useState<number>(Date.now());
   const [wsMessagesReceived, setWsMessagesReceived] = useState<number>(2418);
   const [showWsStatusModal, setShowWsStatusModal] = useState<boolean>(false);
@@ -322,11 +355,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setRiskConfig(tradingEngine.getRiskConfig());
       setDailyRiskStatus(tradingEngine.getDailyRiskStatus());
 
-      // Update WebSocket telemetry
-      setWsLastHeartbeat(Date.now());
-      setWsMessagesReceived((prev) => prev + 1);
-      setWsLatency(Math.floor(18 + Math.random() * 14));
-      setWsStatus('CONNECTED');
     });
     const unsubScanner = scannerDataProvider.subscribe((feed) => {
       setScannerFeed(feed);
@@ -342,23 +370,53 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const timer = setInterval(() => {
       const elapsed = Math.max(0, Math.floor((Date.now() - wsLastHeartbeat) / 1000));
       setSecondsSinceLastTick(elapsed);
-      if (elapsed > 8) {
+      if (elapsed > 90) {
+        setWsStatus('DISCONNECTED');
+      } else if (elapsed > 55) {
         setWsStatus('RECONNECTING');
-      } else {
-        setWsStatus('CONNECTED');
       }
     }, 1000);
     return () => clearInterval(timer);
   }, [wsLastHeartbeat]);
 
-  const handleManualWsReconnect = () => {
+  const refreshLiveMarket = async () => {
+    if (isWebsiteDemo) {
+      scannerDataProvider.setLiveQuotes(false);
+      tradingEngine.useSimulatedMarketTokens();
+      setTokens(tradingEngine.getTokens());
+      setWsStatus('DISCONNECTED');
+      setMarketSource('Demo simulation (add your own Jupiter key in a licensed session)');
+      setMarketError(null);
+      return;
+    }
     setWsStatus('RECONNECTING');
-    setTimeout(() => {
-      tradingEngine.startEngineLoop();
-      setWsLastHeartbeat(Date.now());
-      setWsLatency(Math.floor(20 + Math.random() * 8));
+    const snapshot = await fetchUserMarketSnapshot(getAuthHeaders());
+    if (snapshot.ok && snapshot.tokens.length > 0) {
+      tradingEngine.ingestVerifiedMarketTokens(snapshot.tokens, snapshot.solPriceUsd);
+      scannerDataProvider.setLiveQuotes(true);
       setWsStatus('CONNECTED');
-    }, 800);
+      setWsLatency(snapshot.latencyMs);
+      setWsLastHeartbeat(Date.now());
+      setWsMessagesReceived((prev) => prev + 1);
+      setMarketSource(snapshot.source);
+      setMarketError(null);
+      setTokens(tradingEngine.getTokens());
+      return;
+    }
+    scannerDataProvider.setLiveQuotes(false);
+    setWsStatus('DISCONNECTED');
+    setMarketSource('UNAVAILABLE');
+    setMarketError(snapshot.error || 'Add your Jupiter API key in API Setup');
+  };
+
+  useEffect(() => {
+    void refreshLiveMarket();
+    const timer = window.setInterval(() => void refreshLiveMarket(), 45_000);
+    return () => window.clearInterval(timer);
+  }, [isWebsiteDemo]);
+
+  const handleManualWsReconnect = () => {
+    void refreshLiveMarket();
   };
 
   const handleUpdateRiskConfig = (updates: Partial<RiskManagementConfig>) => {
@@ -379,8 +437,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleManualRefreshScanner = () => {
     setIsRefreshingScanner(true);
-    scannerDataProvider.manualRefresh();
-    setTimeout(() => setIsRefreshingScanner(false), 500);
+    void refreshLiveMarket().finally(() => {
+      scannerDataProvider.manualRefresh();
+      setIsRefreshingScanner(false);
+    });
   };
 
   // Determine user's active membership status
@@ -802,8 +862,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         } else {
           setApiFeedback({
             type: 'success',
-            message: 'API credentials saved, securely encrypted, and verified live with Solana DEX & Security APIs!',
+            message: 'Your API credentials were encrypted on the server. DEX quotes now use your Jupiter key only.',
           });
+          void refreshLiveMarket();
         }
       }
     } catch (err: any) {
@@ -916,28 +977,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
       licensing: { status: 'RUNNING', message: 'Waiting on auth engine...' },
     });
 
-    // 1. Test Solana RPC cluster
+    // 1. Test Solana RPC cluster via same-origin backend proxy
     const t0 = performance.now();
     try {
-      const res = await fetch('https://api.mainnet-beta.solana.com', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getHealth' }),
-      });
-      const data = await res.json();
+      const res = await fetch('/api/wallet/sol-balance?address=11111111111111111111111111111111');
+      const data = await res.json().catch(() => ({}));
       const latencyMs = Math.round(performance.now() - t0);
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setDiagResults((prev) => ({
         ...prev,
         solanaRpc: {
           status: 'SUCCESS',
           latencyMs,
-          message: `Solana Mainnet RPC Cluster Verified (${data.result === 'ok' ? 'Health: OK' : 'Operational'}, ${latencyMs}ms)`,
+          message: `Solana RPC reachable through application backend (${latencyMs}ms)`,
         },
       }));
-    } catch {
+    } catch (error) {
       setDiagResults((prev) => ({
         ...prev,
-        solanaRpc: { status: 'SUCCESS', latencyMs: 24, message: 'Solana RPC WebSocket Stream Active (24ms ping)' },
+        solanaRpc: {
+          status: 'ERROR',
+          message: error instanceof Error ? error.message : 'Solana RPC unavailable',
+        },
       }));
     }
 
@@ -946,18 +1007,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const res = await fetch('https://api.gopluslabs.io/api/v1/token_security/solana?contract_addresses=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263');
       const latencyMs = Math.round(performance.now() - t1);
-      if (res.ok) {
-        setDiagResults((prev) => ({
-          ...prev,
-          goplus: { status: 'SUCCESS', latencyMs, message: `GoPlus Token Security Live API Verified (HTTP 200, ${latencyMs}ms)` },
-        }));
-      } else {
-        throw new Error(`HTTP ${res.status}`);
-      }
-    } catch {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setDiagResults((prev) => ({
         ...prev,
-        goplus: { status: 'SUCCESS', latencyMs: 36, message: 'GoPlus Security Engine Ingestion Active (36ms response)' },
+        goplus: { status: 'SUCCESS', latencyMs, message: `GoPlus Token Security API responded HTTP 200 (${latencyMs}ms)` },
+      }));
+    } catch (error) {
+      setDiagResults((prev) => ({
+        ...prev,
+        goplus: {
+          status: 'ERROR',
+          message: error instanceof Error ? error.message : 'GoPlus Security API unavailable',
+        },
       }));
     }
 
@@ -969,53 +1030,73 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         headers,
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       const latencyMs = Math.round(performance.now() - t2);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Jupiter test failed (HTTP ${res.status})`);
+      }
       setDiagResults((prev) => ({
         ...prev,
         jupiter: {
           status: 'SUCCESS',
-          latencyMs: Math.max(18, latencyMs),
-          message: data.success
-            ? `Jupiter v6 DEX Router Verified with Custom Key (${Math.max(18, latencyMs)}ms)`
-            : `Jupiter v6 DEX Router Active on Solana Mainnet (${Math.max(18, latencyMs)}ms)`,
+          latencyMs,
+          message: `Jupiter quote endpoint verified (${latencyMs}ms)`,
         },
       }));
-    } catch {
+    } catch (error) {
       setDiagResults((prev) => ({
         ...prev,
-        jupiter: { status: 'SUCCESS', latencyMs: 22, message: 'Jupiter v6 Route Aggregator Active (22ms)' },
+        jupiter: {
+          status: 'ERROR',
+          message: error instanceof Error ? error.message : 'Jupiter API unavailable',
+        },
       }));
     }
 
-    // 4. Test Cryptographic Hardware License Engine
+    // 4. Test license verification without fabricating a passing result
     const t3 = performance.now();
     try {
-      const res = await fetch('/api/license/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: licenseState.token || 'demo_token',
-          deviceId: licenseState.deviceId || 'DEV-TEST-ID',
-          platform: licenseState.platform || 'web',
-        }),
-      });
-      const latencyMs = Math.round(performance.now() - t3);
+      if (isWebsiteDemo && licenseState.status !== 'ACTIVE') {
+        setDiagResults((prev) => ({
+          ...prev,
+          licensing: {
+            status: 'SUCCESS',
+            latencyMs: Math.round(performance.now() - t3),
+            message: 'Website demo: device license check skipped (not a paid activation).',
+          },
+        }));
+      } else if (!licenseState.token) {
+        throw new Error('No active license token on this device');
+      } else {
+        const res = await fetch('/api/license/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: licenseState.token,
+            deviceId: licenseState.deviceId,
+            platform: licenseState.platform || 'web',
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        const latencyMs = Math.round(performance.now() - t3);
+        if (!res.ok || data.valid === false) {
+          throw new Error(data.error || `License verify failed (HTTP ${res.status})`);
+        }
+        setDiagResults((prev) => ({
+          ...prev,
+          licensing: {
+            status: 'SUCCESS',
+            latencyMs,
+            message: `License token accepted for this device (${latencyMs}ms)`,
+          },
+        }));
+      }
+    } catch (error) {
       setDiagResults((prev) => ({
         ...prev,
         licensing: {
-          status: 'SUCCESS',
-          latencyMs,
-          message: `Hardware-Bound Machine ID (${licenseState.deviceId || 'WIN-HWID-ACTIVE'}) Validated (${latencyMs}ms)`,
-        },
-      }));
-    } catch {
-      setDiagResults((prev) => ({
-        ...prev,
-        licensing: {
-          status: 'SUCCESS',
-          latencyMs: 14,
-          message: `Machine Fingerprint (${licenseState.deviceId || 'HWID-BOUND'}) Cryptographically Authenticated`,
+          status: 'ERROR',
+          message: error instanceof Error ? error.message : 'License verification unavailable',
         },
       }));
     }
@@ -1089,7 +1170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               type="button"
               onClick={() => setShowWsStatusModal(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-emerald-500/30 hover:border-emerald-500/60 transition text-xs font-mono group shadow-sm"
-              title="Real-Time WebSocket Market Stream Health (Click to inspect)"
+              title="Jupiter quote feed health (click for details)"
             >
               <span className="relative flex h-2 w-2">
                 {wsStatus === 'CONNECTED' ? (
@@ -1104,7 +1185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </>
                 )}
               </span>
-              <span className="text-zinc-300 font-semibold hidden lg:inline">WS Feed:</span>
+              <span className="text-zinc-300 font-semibold hidden lg:inline">Jupiter:</span>
               <span className={wsStatus === 'CONNECTED' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
                 {wsStatus}
               </span>
@@ -1115,7 +1196,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <span className="hidden xl:flex items-center gap-1 font-mono text-zinc-300">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span>Mainnet: 2,890 TPS</span>
+              <span className="max-w-[220px] truncate" title={marketError || marketSource}>{marketSource}</span>
             </span>
 
             <span className="text-zinc-600">•</span>
@@ -1203,7 +1284,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               type="button"
               onClick={() => setShowWalletModal(true)}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-600 hover:to-indigo-500 text-white font-bold border border-purple-500/50 rounded-xl text-xs transition shadow-md shadow-purple-950/40 hover:shadow-purple-900/60"
-              title="Connect Solana Wallet (Phantom, Solflare, Backpack, Mock Keypair)"
+              title={isWebsiteDemo ? 'Paper trading simulated session' : 'Connect Phantom or SafePal'}
             >
               <Wallet className="w-3.5 h-3.5" />
               <span>Connect Wallet</span>
@@ -1441,14 +1522,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                   <div>
                     <h3 className="font-bold text-white text-base flex items-center gap-2">
-                      <span>Live Token Opportunity Scanner</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        6 Active Opportunities
+                      <span>Token Opportunity Scanner</span>
+                      <span className={`px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold flex items-center gap-1 ${
+                        wsStatus === 'CONNECTED'
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                          : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      }`}>
+                        {wsStatus === 'CONNECTED' ? 'Jupiter quotes' : 'Feed unavailable'}
                       </span>
                     </h3>
                     <p className="text-xs text-zinc-400 mt-0.5">
-                      Automated 10-second dynamic feed evaluating GoPlus security, liquidity depth, and ICC Triple-Phase entry setups.
+                      {marketError
+                        ? `Market data: ${marketError}${isWebsiteDemo ? ' Showing labeled simulation tokens until Jupiter recovers.' : ''}`
+                        : 'Prices from Jupiter using your API key. Volume/liquidity stay 0 unless a verified source provides them, so ICC checks 2–3 can fail honestly.'}
+                      {!isWebsiteDemo && marketError && (
+                        <button type="button" className="ml-2 text-purple-300 underline" onClick={() => setActiveTab('api-setup')}>
+                          Open API Setup
+                        </button>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -3104,7 +3195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <strong>Security Architecture Notice:</strong> Never enter wallet private keys or seed phrases here. API keys only authorize public DEX routing and security data retrieval.
                 </p>
                 <p className="text-zinc-400">
-                  Free-trial and paid members may configure their own API keys. Entering API keys does not upgrade membership or unlock Autopilot.
+                  This copy of AI Micro Trader runs on this device ({typeof window !== 'undefined' ? window.location.origin : 'local engine'}). Enter your own Jupiter and GoPlus keys here. They are encrypted in this device’s local data folder and are not shared with other users. Entering keys does not upgrade membership or unlock Autopilot.
                 </p>
               </div>
 
@@ -3131,7 +3222,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                   <div>
                     <h4 className="font-bold text-white text-sm">Non-Custodial Solana Wallet</h4>
-                    <p className="text-[11px] text-zinc-400">Phantom, Solflare, or Browser Web3 Extension</p>
+                    <p className="text-[11px] text-zinc-400">{isWebsiteDemo ? 'Paper demo session (not a live wallet)' : 'Phantom (preferred) or SafePal'}</p>
                   </div>
                 </div>
 
@@ -3153,7 +3244,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-400">Connected Public Key:</span>
                   <span className="text-white font-bold truncate max-w-[260px]">
-                    {(isPaperMode ? connectedWallet : liveWalletAddress) || 'None (Click Connect to link Phantom or Solflare)'}
+                    {(isPaperMode ? connectedWallet : liveWalletAddress) || (isPaperMode ? 'None (Paper session not started)' : 'None (Connect Phantom or SafePal)')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -3197,7 +3288,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/20 flex items-center gap-1.5"
                   >
                     <Wallet className="w-3.5 h-3.5" />
-                    <span>Connect Phantom / Solflare Wallet</span>
+                    <span>{isPaperMode ? 'Start Paper Session' : 'Connect Phantom / SafePal'}</span>
                   </button>
                 )}
 
@@ -3221,7 +3312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <ArrowRightLeft className="w-5 h-5 text-cyan-400" />
                   <div>
                     <h4 className="font-bold text-white text-sm">Jupiter API</h4>
-                    <p className="text-[11px] text-zinc-400">Solana DEX Swap Router & Priority Fee Quotes</p>
+                    <p className="text-[11px] text-zinc-400">Your personal Jupiter key. Required for quotes. Never shared with other users.</p>
                   </div>
                 </div>
 
@@ -3250,7 +3341,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Configured Key:</span>
                   <span className="text-white font-bold">
-                    {apiKeys?.jupiter.maskedKey ? apiKeys.jupiter.maskedKey : 'None (Using default endpoint)'}
+                    {apiKeys?.jupiter.maskedKey ? apiKeys.jupiter.maskedKey : 'Not set — required for your DEX feed'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -4374,11 +4465,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* Diagnostic Conclusion Summary */}
-            {!diagnosticsRunning && diagResults.licensing?.status === 'SUCCESS' && (
+            {!diagnosticsRunning &&
+              diagResults.solanaRpc?.status === 'SUCCESS' &&
+              diagResults.goplus?.status === 'SUCCESS' &&
+              diagResults.jupiter?.status === 'SUCCESS' &&
+              diagResults.licensing?.status === 'SUCCESS' && (
               <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl mb-4 text-xs text-emerald-200 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
-                  <strong>All 4 Core Systems Operational:</strong> The application is receiving live market feeds, routing swap quotes, auditing tokens, and cryptographically validating licenses as expected.
+                  <strong>All 4 checks passed:</strong> Backend Solana RPC, GoPlus, Jupiter, and license verification each returned a successful result in this run.
                 </span>
               </div>
             )}
@@ -4424,7 +4519,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         connectedWallet={liveWalletAddress}
         walletName={liveWalletName}
         solBalance={liveWalletSolBalance}
-        solPriceUsd={balance.solPrice}
+        solPriceUsd={balance.solPrice > 0 ? balance.solPrice : null}
         onConnect={handleLiveWalletConnect}
         onDisconnect={handleLiveWalletDisconnect}
         balanceError={liveWalletBalanceError}

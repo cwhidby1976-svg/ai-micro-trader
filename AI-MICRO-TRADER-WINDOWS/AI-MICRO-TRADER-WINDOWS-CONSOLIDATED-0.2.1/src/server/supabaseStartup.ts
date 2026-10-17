@@ -1,6 +1,11 @@
-﻿import { supabase } from './supabase';
+﻿import { isSupabaseConfigured, supabase } from './supabase';
 
 export async function verifySupabaseConnection(): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) {
+    console.log('[AI Micro Trader] Local device mode: using encrypted JSON storage on this machine (Supabase not configured).');
+    return;
+  }
+
   const { error } = await supabase
     .from('amt_server_state')
     .select('id')

@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { db } from './db';
 import { PlanType, PlatformType } from './types';
 import { tradingEngine } from '../services/tradingEngine';
+import { decidePublicLicenseRequest } from './publicLicenseRequest';
+import { loadMarketSnapshot } from '../services/jupiterMarket';
 
 export const apiRouter = Router();
 
@@ -198,6 +200,43 @@ apiRouter.get('/wallet/sol-balance', rateLimiter(30, 60_000), async (req: Reques
   }
 });
 
+apiRouter.get('/market/snapshot', rateLimiter(20, 60_000), async (req: Request, res: Response) => {
+  const caller = resolveCaller(req);
+  res.setHeader('Cache-Control', 'no-store');
+  if (!caller.isAuthenticated) {
+    return res.status(401).json({
+      ok: false,
+      code: 'AUTH_REQUIRED',
+      error: 'Log in or activate your license before loading DEX data with your API keys.',
+      tokens: [],
+    });
+  }
+
+  const secrets = db.getUserProviderSecrets(caller.ownerId);
+  if (!secrets.jupiterApiKey) {
+    return res.status(400).json({
+      ok: false,
+      code: 'JUPITER_KEY_REQUIRED',
+      error: 'Add your personal Jupiter API key in API Setup. AI Micro Trader does not use a shared Jupiter key.',
+      tokens: [],
+    });
+  }
+
+  const snapshot = await loadMarketSnapshot({
+    preferBackend: false,
+    apiKey: secrets.jupiterApiKey,
+    goPlusAppKey: secrets.goPlusAppKey || undefined,
+    goPlusAppSecret: secrets.goPlusAppSecret || undefined,
+  });
+  if (!snapshot.ok) {
+    return res.status(502).json(snapshot);
+  }
+  return res.json({
+    ...snapshot,
+    keys: db.getPublicUserApiKeys(caller.ownerId),
+  });
+});
+
 // ==========================================
 // 1. PUBLIC PRICING & ORACLE EXCHANGE RATE
 // ==========================================
@@ -218,6 +257,7 @@ apiRouter.get('/pricing', async (req: Request, res: Response) => {
       lifetimeDeviceLimit: config.lifetimeDeviceLimit || 3,
       solReceivingAddress: config.solReceivingAddress,
       solRateUsd: rate,
+      solRateAvailable: rate > 0 && source !== 'UNAVAILABLE',
       rateSource: source,
       rateTimestamp: timestamp,
     });
@@ -844,76 +884,50 @@ apiRouter.get('/admin/stats', requireAdmin, (req: Request, res: Response) => {
 // ==========================================
 
 apiRouter.post('/license/request-key', rateLimiter(10, 60000), (req: Request, res: Response) => {
-  const { name, email, plan, solanaWallet } = req.body;
+  const { name, email, plan } = req.body;
   const ip = getClientIp(req);
 
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Valid email address is required' });
   }
 
-  const normalizedPlan: PlanType = plan === 'Lifetime' ? 'Lifetime' : plan === 'Annual' ? 'Annual' : 'Trial';
-
-  let primaryKeyResult;
-  let secondaryKeyResult = null;
-
-  if (normalizedPlan === 'Lifetime') {
-    // Lifetime Subscription gets 2 keys, full autopilot
-    primaryKeyResult = db.createLicense({
-      type: 'Lifetime',
-      maxDevices: 2,
-      durationDays: 36500,
-      note: `Lifetime Key 1 - ${name || 'User'} (${email})`,
+  const decision = decidePublicLicenseRequest(plan);
+  if (!decision.allowed) {
+    db.logAudit({
+      action: 'AUTH_FAILED',
       actor: email,
+      details: `Rejected unpaid ${String(plan)} public key request`,
       ip,
     });
-    secondaryKeyResult = db.createLicense({
-      type: 'Lifetime',
-      maxDevices: 2,
-      durationDays: 36500,
-      note: `Lifetime Key 2 (Seat 2) - ${name || 'User'} (${email})`,
-      actor: email,
-      ip,
-    });
-  } else if (normalizedPlan === 'Annual') {
-    // Annual Subscription offers 1 key only, full autopilot
-    primaryKeyResult = db.createLicense({
-      type: 'Annual',
-      maxDevices: 1,
-      durationDays: 365,
-      note: `Annual Single Key - ${name || 'User'} (${email})`,
-      actor: email,
-      ip,
-    });
-  } else {
-    // 1-Day Free Trial (24h) locks autopilot mode, manual trading only, 1 key
-    primaryKeyResult = db.createLicense({
-      type: 'Trial',
-      maxDevices: 1,
-      durationDays: 1,
-      note: `1-Day Trial (24h Manual Only) - ${name || 'User'} (${email})`,
-      actor: email,
-      ip,
+    return res.status(decision.status).json({
+      success: false,
+      error: decision.error,
     });
   }
 
+  const primaryKeyResult = db.createLicense({
+    type: 'Trial',
+    maxDevices: 1,
+    durationDays: 1,
+    note: `1-Day Trial (24h Manual Only) - ${name || 'User'} (${email})`,
+    actor: email,
+    ip,
+  });
+
   res.json({
     success: true,
-    plan: normalizedPlan,
+    plan: 'Trial',
     primaryKey: primaryKeyResult.rawCode,
-    secondaryKey: secondaryKeyResult ? secondaryKeyResult.rawCode : null,
+    secondaryKey: null,
     durationDays: primaryKeyResult.record.durationDays,
     maxDevices: primaryKeyResult.record.maxDevices,
-    autopilotUnlocked: normalizedPlan !== 'Trial',
+    autopilotUnlocked: false,
     instructions: [
       'Copy your 16-character cryptographic license key.',
       'Open the AI Micro Trader Web Terminal, Windows (.exe), or Android (.apk) app.',
       'Paste your key into the activation prompt to bind to your hardware.',
-      normalizedPlan === 'Trial'
-        ? '1-Day Free Trial (24h): Autopilot mode is locked. You can trade manually with full scanner access.'
-        : normalizedPlan === 'Annual'
-        ? 'Annual Subscription (365d): Offers 1 key only. Full 15-minute ICC autopilot unlocked.'
-        : 'Lifetime Subscription: Gets 2 keys. Full 15-minute ICC autopilot unlocked on 2 devices simultaneously.',
-      'Sign in via the User Login tab anytime with your email to retrieve your keys and manage connected devices.',
+      '1-Day Free Trial (24h): Autopilot mode is locked. You can trade manually with full scanner access.',
+      'Annual and Lifetime keys are issued only after verified SOL payment in User Login, or by an administrator.',
     ],
   });
 });

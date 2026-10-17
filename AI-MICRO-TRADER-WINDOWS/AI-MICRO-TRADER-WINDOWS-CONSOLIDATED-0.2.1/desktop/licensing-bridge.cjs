@@ -1,20 +1,23 @@
 const { ipcMain, BrowserWindow } = require('electron');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
 
-// LOCAL TEST ONLY. Do not ship as the production licensing endpoint.
-const API_BASE = 'http://127.0.0.1:3000';
+const PORT = process.env.PORT || '3000';
+const API_BASE = `http://127.0.0.1:${PORT}`;
 const ALLOWED_PATHS = new Set([
   '/api/license/activate',
   '/api/license/verify',
-  '/api/license/deactivate'
+  '/api/license/deactivate',
 ]);
+
+function isTrustedOrigin(url) {
+  if (!url || typeof url !== 'string') return false;
+  return url.startsWith(`http://127.0.0.1:${PORT}`) || url.startsWith('http://localhost:');
+}
 
 function registerLicensingBridge() {
   ipcMain.handle('licensing:request', async (event, request) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    const trustedUrl = pathToFileURL(path.join(__dirname, 'dist', 'index.html')).href;
-    if (!win || win.isDestroyed() || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url !== trustedUrl) {
+    const frameUrl = event.senderFrame?.url || '';
+    if (!win || win.isDestroyed() || event.senderFrame !== win.webContents.mainFrame || !isTrustedOrigin(frameUrl)) {
       throw new Error('Unauthorized application origin');
     }
     if (!request || typeof request !== 'object' || !ALLOWED_PATHS.has(request.path)) {
@@ -29,7 +32,7 @@ function registerLicensingBridge() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: serialized,
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(10000),
     });
     const data = await response.json();
     return { status: response.status, ok: response.ok, data };

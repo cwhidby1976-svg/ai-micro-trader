@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { supabase } from './supabase';
+import { requireSupabase } from './supabase';
 import type { AdminUser } from './types';
 
 /** Server-only; invoke only after ADMIN_SETUP_KEY verification in the API route. */
@@ -21,7 +21,7 @@ export async function createFirstSupabaseAdminAtomic(username: string, password:
     failedLoginAttempts: 0,
     lockedUntil: null,
   };
-  const { data, error } = await supabase.rpc('amt_create_first_admin', {
+  const { data, error } = await requireSupabase().rpc('amt_create_first_admin', {
     p_id: admin.id,
     p_username: admin.username,
     p_data: admin,

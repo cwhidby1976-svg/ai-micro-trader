@@ -22,6 +22,7 @@
                                 "main.cjs",
                                 "preload.cjs",
                                 "licensing-bridge.cjs",
+                                "local-server.cjs",
                                 "assets/**/*",
                                 "dist/**/*"
                             ],

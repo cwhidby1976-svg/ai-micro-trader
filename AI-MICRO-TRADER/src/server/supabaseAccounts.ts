@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { requireSupabase } from './supabase';
 import type { AdminUser, MemberUser } from './types';
 
 function checkError(error: { message: string } | null): void {
@@ -8,7 +8,7 @@ function checkError(error: { message: string } | null): void {
 }
 
 export async function loadSupabaseAdmins(): Promise<AdminUser[]> {
-  const { data, error } = await supabase
+  const { data, error } = await requireSupabase()
     .from('amt_admin_users')
     .select('data');
 
@@ -17,7 +17,7 @@ export async function loadSupabaseAdmins(): Promise<AdminUser[]> {
 }
 
 export async function loadSupabaseMembers(): Promise<MemberUser[]> {
-  const { data, error } = await supabase
+  const { data, error } = await requireSupabase()
     .from('amt_members')
     .select('data');
 
@@ -28,7 +28,7 @@ export async function loadSupabaseMembers(): Promise<MemberUser[]> {
 export async function insertSupabaseAdmin(
   admin: AdminUser
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await requireSupabase()
     .from('amt_admin_users')
     .insert({
       id: admin.id,
@@ -43,7 +43,7 @@ export async function insertSupabaseAdmin(
 export async function insertSupabaseMember(
   member: MemberUser
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await requireSupabase()
     .from('amt_members')
     .insert({
       id: member.id,
@@ -58,7 +58,7 @@ export async function insertSupabaseMember(
 export async function updateSupabaseAdmin(
   admin: AdminUser
 ): Promise<void> {
-  const { data, error } = await supabase
+  const { data, error } = await requireSupabase()
     .from('amt_admin_users')
     .update({
       username: admin.username,
@@ -77,7 +77,7 @@ export async function updateSupabaseAdmin(
 export async function updateSupabaseMember(
   member: MemberUser
 ): Promise<void> {
-  const { data, error } = await supabase
+  const { data, error } = await requireSupabase()
     .from('amt_members')
     .update({
       email: member.email,

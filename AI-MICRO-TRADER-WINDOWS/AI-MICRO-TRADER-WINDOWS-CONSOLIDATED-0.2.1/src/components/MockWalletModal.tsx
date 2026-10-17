@@ -25,57 +25,12 @@ export interface MockWalletOption {
 
 export const MOCK_WALLETS: MockWalletOption[] = [
   {
-    id: 'phantom',
-    name: 'Phantom',
-    iconBg: 'from-purple-600 to-indigo-700',
-    badgeColor: 'text-purple-400 border-purple-500/40 bg-purple-950/40',
-    address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    description: 'Most popular Solana wallet & browser extension',
-    initialSol: 64.72,
-  },
-  {
-    id: 'solflare',
-    name: 'Solflare',
-    iconBg: 'from-amber-500 to-orange-600',
-    badgeColor: 'text-amber-400 border-amber-500/40 bg-amber-950/40',
-    address: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-    description: 'Non-custodial Solana web & mobile wallet',
-    initialSol: 42.15,
-  },
-  {
-    id: 'safepal',
-    name: 'SafePal',
-    iconBg: 'from-blue-600 to-indigo-900',
-    badgeColor: 'text-blue-400 border-blue-500/40 bg-blue-950/40',
-    address: 'SFPaL8kQ92rV3Tq8Yw1NmE5P4jKhB6tZaCs9uG2o9xY',
-    description: 'SafePal Hardware & Mobile Non-Custodial Multi-Chain Wallet',
-    initialSol: 38.45,
-  },
-  {
-    id: 'backpack',
-    name: 'Backpack',
-    iconBg: 'from-rose-600 to-red-700',
-    badgeColor: 'text-rose-400 border-rose-500/40 bg-rose-950/40',
-    address: '4Nd1mBQtrMJWY86Kjk5r24xScUeX72DsvWp9qP8h5XG2',
-    description: 'xNFT & Solana next-gen ecosystem wallet',
-    initialSol: 28.5,
-  },
-  {
-    id: 'coinbase',
-    name: 'Coinbase Wallet',
-    iconBg: 'from-blue-600 to-cyan-700',
-    badgeColor: 'text-blue-400 border-blue-500/40 bg-blue-950/40',
-    address: '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1',
-    description: 'Coinbase non-custodial multi-chain wallet',
-    initialSol: 15.8,
-  },
-  {
-    id: 'embedded-keypair',
-    name: 'Dedicated Bot Keypair',
+    id: 'paper-session',
+    name: 'Paper Trading Session',
     iconBg: 'from-emerald-600 to-teal-700',
     badgeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40',
-    address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    description: 'High-speed local bot keypair for automated micro-trades',
+    address: 'Paper111111111111111111111111111111111111111',
+    description: 'Simulated paper-trading identity. Not Phantom, SafePal, or any live wallet.',
     initialSol: 50.0,
   },
 ];
@@ -117,32 +72,12 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
 
   const handleSelectWallet = async (wallet: MockWalletOption) => {
     setConnectingId(wallet.id);
-
-    // If Phantom and real extension exists in browser
-    if (wallet.id === 'phantom') {
-      const solana = typeof window !== 'undefined' ? (window as any).solana : null;
-      if (solana && solana.isPhantom) {
-        try {
-          const resp = await solana.connect();
-          const realAddr = resp.publicKey.toString();
-          setConnectingId(null);
-          setIsSwitching(false);
-          onConnect(realAddr, 'Phantom', wallet.initialSol);
-          onClose();
-          return;
-        } catch {
-          // If rejected or cancelled, fall back to simulated Phantom wallet
-        }
-      }
-    }
-
-    // Brief realistic mock connection animation
     setTimeout(() => {
       setConnectingId(null);
       setIsSwitching(false);
       onConnect(wallet.address, wallet.name, wallet.initialSol);
       onClose();
-    }, 450);
+    }, 250);
   };
 
   const activeWalletInfo =
@@ -167,8 +102,8 @@ export const MockWalletModal: React.FC<MockWalletModalProps> = ({
               </h3>
               <p className="text-[11px] text-zinc-400">
                 {connectedWallet && !isSwitching
-                  ? 'Active non-custodial session & live SOL balance'
-                  : 'Select your preferred Solana wallet connector'}
+                  ? 'Paper-mode simulated session (not a live wallet)'
+                  : 'Paper demo only — live Phantom/SafePal connect is in licensed production mode'}
               </p>
             </div>
           </div>

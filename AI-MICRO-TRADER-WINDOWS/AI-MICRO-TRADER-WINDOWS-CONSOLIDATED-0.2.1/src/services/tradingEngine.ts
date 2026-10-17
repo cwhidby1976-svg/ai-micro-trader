@@ -510,6 +510,7 @@ export class TradingEngine {
   private isPaperTrading = true;
   private isLiveAuthorized = false;
   private autopilotActive = false; // NON-NEGOTIABLE: Autopilot defaults to OFF on start/restart!
+  private liveMarketEnabled = false;
   private emergencyStopped = false;
   private cycleStartedAt = Date.now();
   private subscribers: Array<() => void> = [];
@@ -972,18 +973,20 @@ export class TradingEngine {
   private tickPricesAndPositions() {
     const now = Date.now();
 
-    // 1. Price jitter
-    this.tokens = this.tokens.map((tok) => {
-      const delta = (Math.random() - 0.485) * 0.012;
-      const newPrice = Math.max(0.00001, tok.priceUsd * (1 + delta));
-      const sparkline = [...tok.sparkline.slice(-14), newPrice];
-      return {
-        ...tok,
-        priceUsd: newPrice,
-        change5m: +(tok.change5m + delta * 15).toFixed(2),
-        sparkline,
-      };
-    });
+    // 1. Price jitter is demo-only. Live Jupiter quotes must not be overwritten.
+    if (!this.liveMarketEnabled) {
+      this.tokens = this.tokens.map((tok) => {
+        const delta = (Math.random() - 0.485) * 0.012;
+        const newPrice = Math.max(0.00001, tok.priceUsd * (1 + delta));
+        const sparkline = [...tok.sparkline.slice(-14), newPrice];
+        return {
+          ...tok,
+          priceUsd: newPrice,
+          change5m: +(tok.change5m + delta * 15).toFixed(2),
+          sparkline,
+        };
+      });
+    }
 
     // 2. Continuous position monitoring (Stop Loss -10%, Target +10%, Max TP +25%, 7-min holding time)
     this.positions = this.positions.map((pos) => {
@@ -1689,6 +1692,28 @@ export class TradingEngine {
 
   public getTokens(): ScannedToken[] {
     return this.tokens;
+  }
+
+  public ingestVerifiedMarketTokens(
+    raw: Array<Omit<ScannedToken, 'checklist' | 'ema9' | 'ema21' | 'iccPhase' | 'iccSignalStrength'>>,
+    solPriceUsd?: number | null
+  ): void {
+    this.liveMarketEnabled = true;
+    this.tokens = this.evaluateTokens(raw);
+    if (solPriceUsd && solPriceUsd > 0) {
+      this.solPriceUsd = solPriceUsd;
+    }
+    this.notify();
+  }
+
+  public useSimulatedMarketTokens(): void {
+    this.liveMarketEnabled = false;
+    this.tokens = this.evaluateTokens(INITIAL_TOKENS_DATA);
+    this.notify();
+  }
+
+  public isLiveMarketEnabled(): boolean {
+    return this.liveMarketEnabled;
   }
 
   public getPositions(): Position[] {

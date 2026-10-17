@@ -38,7 +38,7 @@ interface DatabaseSchema {
   userApiKeys: UserApiCredentials[];
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = path.resolve(process.env.AMT_DATA_DIR || path.join(process.cwd(), 'data'));
 const DB_FILE = path.join(DATA_DIR, 'licensing_db.json');
 
 // Default Solana Receiving Wallet (Can be edited by Admin in Admin Panel)
@@ -147,7 +147,12 @@ class LicensingDatabase {
     this.ensureDataDir();
     const tempFile = `${DB_FILE}.${Date.now()}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(dataToSave, null, 2), 'utf-8');
-    fs.renameSync(tempFile, DB_FILE);
+    try {
+      fs.renameSync(tempFile, DB_FILE);
+    } catch {
+      fs.copyFileSync(tempFile, DB_FILE);
+      fs.unlinkSync(tempFile);
+    }
   }
 
   public getServerSecret(): string {
@@ -393,12 +398,9 @@ class LicensingDatabase {
       };
     }
 
-    // Reliable fallback rate if all external APIs timeout
-    const fallbackRate = 154.5;
-    this.cachedSolRate = { rate: fallbackRate, timestamp: now };
     return {
-      rate: fallbackRate,
-      source: 'Solana Network Baseline',
+      rate: 0,
+      source: 'UNAVAILABLE',
       timestamp: new Date().toISOString(),
     };
   }
@@ -1489,6 +1491,24 @@ class LicensingDatabase {
   public getUserApiCredentials(ownerId: string): UserApiCredentials | null {
     if (!ownerId) return null;
     return this.data.userApiKeys.find((k) => k.ownerId === ownerId) || null;
+  }
+
+  /** Server-only. Never send these values to the browser. */
+  public getUserProviderSecrets(ownerId: string): {
+    jupiterApiKey: string | null;
+    goPlusAppKey: string | null;
+    goPlusAppSecret: string | null;
+  } {
+    const creds = this.getUserApiCredentials(ownerId);
+    return {
+      jupiterApiKey: creds?.jupiterApiKeyEncrypted ? this.decryptString(creds.jupiterApiKeyEncrypted) || null : null,
+      goPlusAppKey: creds?.goPlusAppKeyEncrypted || creds?.goPlusApiKeyEncrypted
+        ? this.decryptString(creds.goPlusAppKeyEncrypted || creds.goPlusApiKeyEncrypted || '') || null
+        : null,
+      goPlusAppSecret: creds?.goPlusAppSecretEncrypted
+        ? this.decryptString(creds.goPlusAppSecretEncrypted) || null
+        : null,
+    };
   }
 
   public getPublicUserApiKeys(ownerId: string): ClientApiKeysPublic {

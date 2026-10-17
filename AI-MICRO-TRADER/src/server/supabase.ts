@@ -1,16 +1,23 @@
 ﻿import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const url = process.env.SUPABASE_URL;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
 
-if (!url || !secretKey) {
-  throw new Error('Supabase server configuration is missing');
-}
+export const isSupabaseConfigured = Boolean(url && secretKey);
 
-export const supabase = createClient(url, secretKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+export const supabase: SupabaseClient | null = isSupabaseConfigured
+  ? createClient(url as string, secretKey as string, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
+  : null;
+
+export function requireSupabase(): SupabaseClient {
+  if (!supabase) {
+    throw new Error('Supabase is not configured on this local device. Customer keys and licenses are stored on the device.');
+  }
+  return supabase;
+}

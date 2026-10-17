@@ -9,6 +9,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed' }
 } finally { Remove-Item Env:\VITE_APP_DISTRIBUTION -ErrorAction SilentlyContinue }
 if (!(Test-Path '.\dist\index.html')) { throw 'Missing dist/index.html' }
+npx esbuild server.ts --bundle --platform=node --format=cjs --outfile=.\desktop\local-server.cjs --external:vite --define:import.meta.url=import_meta_url --banner:js="const import_meta_url = require('url').pathToFileURL(__filename).href;"
+if ($LASTEXITCODE -ne 0) { throw 'Local engine bundle failed' }
 if (Test-Path '.\desktop\dist') { Remove-Item '.\desktop\dist' -Recurse -Force }
 Copy-Item '.\dist' '.\desktop\dist' -Recurse
 Push-Location '.\desktop'

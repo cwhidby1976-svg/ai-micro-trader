@@ -63,7 +63,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [reqName, setReqName] = useState('');
   const [reqEmail, setReqEmail] = useState('');
   const [reqHandle, setReqHandle] = useState('');
-  const [reqPlan, setReqPlan] = useState<'Trial' | 'Annual' | 'Lifetime'>('Annual');
+  const [reqPlan, setReqPlan] = useState<'Trial' | 'Annual' | 'Lifetime'>('Trial');
   const [reqSuccess, setReqSuccess] = useState(false);
   const [reqGeneratedKey, setReqGeneratedKey] = useState<string | null>(null);
   const [reqSecondaryKey, setReqSecondaryKey] = useState<string | null>(null);
@@ -114,6 +114,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (reqPlan === 'Annual' || reqPlan === 'Lifetime') {
+      setShowRequestModal(false);
+      onOpenMemberPortal?.();
+      window.alert('Annual and Lifetime keys are issued only after verified SOL payment in User Login, or by an administrator. Opening the member portal.');
+      return;
+    }
     try {
       const res = await fetch('/api/license/request-key', {
         method: 'POST',
@@ -121,24 +127,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         body: JSON.stringify({
           name: reqName,
           email: reqEmail,
-          plan: reqPlan,
+          plan: 'Trial',
           solanaWallet: reqHandle,
         }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setReqGeneratedKey(data.primaryKey);
-        setReqSecondaryKey(data.secondaryKey);
+        setReqSecondaryKey(null);
         setReqSuccess(true);
         return;
       }
+      window.alert(data.error || 'Unable to issue a trial access key.');
     } catch (err) {
       console.error('License request failed:', err);
+      window.alert('Unable to issue an access key. Please try again later or contact support.');
     }
     setReqSuccess(false);
     setReqGeneratedKey(null);
     setReqSecondaryKey(null);
-    window.alert('Unable to issue an access key. Please try again later or contact support.');
   };
 
   return (
@@ -275,19 +282,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-zinc-300 font-semibold">Solana Mainnet:</span>
-              <span className="text-emerald-400">Operational • ~2,420 TPS</span>
+              <span className="text-zinc-400">RPC via application backend when available</span>
             </div>
             <div className="hidden sm:flex items-center gap-2 text-zinc-600">|</div>
             <div className="hidden sm:flex items-center gap-2">
               <Zap className="w-3 h-3 text-cyan-400" />
               <span className="text-zinc-300 font-semibold">Jupiter v6 Aggregator:</span>
-              <span className="text-cyan-400">Connected • 11ms Avg Route</span>
+              <span className="text-cyan-400">Use your own API key in dashboard API Setup</span>
             </div>
             <div className="hidden md:flex items-center gap-2 text-zinc-600">|</div>
             <div className="hidden md:flex items-center gap-2">
               <Shield className="w-3 h-3 text-emerald-400" />
               <span className="text-zinc-300 font-semibold">GoPlus Contract Auditing:</span>
-              <span className="text-emerald-400">Live Automated Safety Engine</span>
+              <span className="text-zinc-400">Used when a security response is available</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -782,8 +789,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               <button
                 onClick={() => {
-                  setReqPlan('Annual');
-                  setShowRequestModal(true);
+                  onOpenMemberPortal?.();
                 }}
                 className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-1.5"
               >
@@ -848,8 +854,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               <button
                 onClick={() => {
-                  setReqPlan('Lifetime');
-                  setShowRequestModal(true);
+                  onOpenMemberPortal?.();
                 }}
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-xs rounded-xl transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-1.5"
               >
@@ -866,20 +871,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span>How Do Users Get Their License Key?</span>
             </h3>
             <p className="text-xs text-zinc-400 mb-6">
-              Access keys are generated on-demand and tied cryptographically to hardware instances for piracy protection.
+              Trial keys can be requested here. Paid Annual and Lifetime keys are issued only after verified SOL payment or by an administrator.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
               <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
                 <div className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center text-[11px]">1</div>
                 <div className="font-semibold text-white">Select Plan & Info</div>
-                <div className="text-zinc-400 text-[11px]">Click 'Get Access Key' or register in User Login. Enter your email and handle.</div>
+                <div className="text-zinc-400 text-[11px]">Request a 1-day trial, or register in User Login for paid checkout.</div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
                 <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-[11px]">2</div>
-                <div className="font-semibold text-white">Instant Key Delivery</div>
-                <div className="text-zinc-400 text-[11px]">Your unique 16-character code (<span className="font-mono text-cyan-300">MTR-XXXX...</span>) is displayed on-screen. Lifetime gets 2 keys.</div>
+                <div className="font-semibold text-white">Key Delivery</div>
+                <div className="text-zinc-400 text-[11px]">Trial codes appear on-screen. Paid keys appear only after verified payment or admin issuance.</div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
@@ -920,7 +925,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
               <h4 className="font-bold text-white text-base">Download the App</h4>
               <p className="text-xs text-zinc-400 mt-2">
-                Choose the Windows installer for desktop or download the APK for Android devices.
+                The installer runs the trading engine on this device at a local address (127.0.0.1 and your LAN IP). Keys and licenses stay in your device data folder.
               </p>
             </div>
 
@@ -939,10 +944,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-12 h-12 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 font-extrabold text-base flex items-center justify-center mb-4">
                 3
               </div>
-              <h4 className="font-bold text-white text-base">Live Solana Execution</h4>
+              <h4 className="font-bold text-white text-base">Add your own API keys</h4>
               <p className="text-xs text-zinc-400 mt-2">
-                Trade Solana meme tokens directly via Jupiter DEX, monitor 15-minute ICC momentum cycles,
-                and safeguard funds with real-time risk controls.
+                Open dashboard API Setup and enter your Jupiter and GoPlus keys. The app does not ship a shared master key. Quotes and scans use the keys stored on this device.
               </p>
             </div>
           </div>
@@ -1127,7 +1131,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <span>How Do You Receive Your Key?</span>
                   </div>
                   <p className="leading-relaxed">
-                    Submitting below instantly issues your 16-character cryptographic key on-screen. You can also log into the <strong>User Login</strong> tab anytime to retrieve and manage your keys.
+                    A 1-day trial key is issued on-screen. Annual and Lifetime keys require verified SOL checkout in User Login or an administrator-issued code.
                   </p>
                 </div>
 
@@ -1135,7 +1139,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   type="submit"
                   className="w-full mt-2 py-3 bg-[#F59E0B] hover:bg-[#D97706] text-black font-extrabold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5"
                 >
-                  <span>Submit & Generate Key</span>
+                  <span>{reqPlan === 'Trial' ? 'Submit & Generate Trial Key' : 'Continue to Paid Checkout'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
